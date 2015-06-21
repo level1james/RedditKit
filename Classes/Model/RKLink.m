@@ -117,7 +117,7 @@
 + (NSValueTransformer *)thumbnailURLJSONTransformer
 {
     return [MTLValueTransformer transformerWithBlock:^id(NSString *thumbnailURL) {
-        if ([thumbnailURL rangeOfString:@"."] == NSNotFound)
+        if ([thumbnailURL rangeOfString:@"."].location == NSNotFound)
         {
             return nil;
         }
