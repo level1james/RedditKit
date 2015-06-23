@@ -172,6 +172,61 @@
     return authenticationTask;
 }
 
+- (NSURLSessionDataTask *)guestTokenWithDeviceID:(NSString *)deviceID completion:(RKCompletionBlock)completion
+{
+    [self setOAuthorizationHeader];
+    NSURL *baseURL = [[self class] APIBaseLoginURL];
+    NSString *URLString = [[NSURL URLWithString:@"api/v1/access_token" relativeToURL:baseURL] absoluteString];
+    
+    NSString *grantType = @"https://oauth.reddit.com/grants/installed_client";
+    NSString *postData = [NSString stringWithFormat:@"grant_type=%@&device_id=%@", grantType, deviceID];
+    
+    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"POST" URLString:URLString parameters:nil error:nil];
+    request.HTTPBody = [postData dataUsingEncoding:NSUTF8StringEncoding];
+    request.HTTPMethod = @"POST";
+    
+    __weak __typeof(self)weakSelf = self;
+    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+        if (!error)
+        {
+            _accessToken = responseObject[@"access_token"];
+            if (responseObject[@"refresh_token"] && responseObject[@"refresh_token"] != [NSNull null]) {
+                _refreshToken = responseObject[@"refresh_token"];
+            } else {
+                _refreshToken = nil;
+            }
+            //if our token expires, we should refresh it
+            if (responseObject[@"expires_in"]) {
+                //if we have an existing timer, invalidate it so it doesn't fire twice
+                if (_tokenRefreshTimer) {
+                    [_tokenRefreshTimer invalidate];
+                }
+                int seconds = [responseObject[@"expires_in"] intValue] - 10; //be a little aggressive and refresh 10 seconds before our token expires
+                _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:nil repeats:NO];
+            }
+            [self setBearerAccessToken:_accessToken];
+            if (!self.currentUser) {
+                [weakSelf loadUserAccountWithCallback:^(NSError *error) {
+                    if (completion) {
+                        completion(error);
+                    }
+                }];
+            }
+            else if (completion)
+            {
+                completion(nil);
+            }
+        }
+        else if (completion) {
+            completion(error);
+        }
+    }];
+    
+    [authenticationTask resume];
+    
+    return authenticationTask;
+}
+
 - (void)loadUserAccountWithCallback:(RKCompletionBlock)completion
 {
     __weak __typeof(self)weakSelf = self;
