@@ -54,6 +54,7 @@
         @"authorFlairText": @"data.author_flair_text",
         @"linkFlairClass": @"data.link_flair_css_class",
         @"linkFlairText": @"data.link_flair_text",
+        @"previewImages": @"data.preview.images",
     };
     
     return [[super JSONKeyPathsByPropertyKey] mtl_dictionaryByAddingEntriesFromDictionary:keyPaths];
@@ -142,5 +143,26 @@
         }
     }];
 }
+
++ (NSValueTransformer *)previewImagesJSONTransformer
+{
+    return [MTLValueTransformer transformerWithBlock:^id(NSArray *jsonArray) {
+        NSMutableArray *previewImages = [[NSMutableArray alloc] initWithCapacity:jsonArray.count];
+        for (NSDictionary *dict in jsonArray) {
+            NSError *error = nil;
+            id object = [MTLJSONAdapter modelOfClass:[RKImageMetadata class] fromJSONDictionary:dict error:&error];
+            if (!error)
+            {
+                [previewImages addObject: object];
+            }
+            else
+            {
+                NSLog(@"Failed to build preview image metadata reply: %@", error);
+            }
+        }
+        return previewImages;
+    }];
+}
+
 
 @end

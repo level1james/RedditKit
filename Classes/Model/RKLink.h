@@ -21,6 +21,7 @@
 // THE SOFTWARE.
 
 #import "RKVotable.h"
+#import "RKImageMetadata.h"
 
 @interface RKLink : RKVotable
 
@@ -163,6 +164,10 @@
  The flair text value for the link.
  */
 @property (nonatomic, copy, readonly) NSString *linkFlairText;
+
+/**
+ */
+@property (nonatomic, copy, readonly) NSArray *previewImages;
 
 /**
  Whether or not the link has an image URL.
