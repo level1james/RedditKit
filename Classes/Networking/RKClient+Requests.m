@@ -72,6 +72,7 @@
     NSMutableDictionary *taskParameters = [NSMutableDictionary dictionary];
     [taskParameters addEntriesFromDictionary:parameters];
     [taskParameters addEntriesFromDictionary:[pagination dictionaryValue]];
+    [taskParameters setObject:@YES forKey:@"raw_json"];
     
     return [self getPath:path parameters:taskParameters completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {
         if (!completion)
