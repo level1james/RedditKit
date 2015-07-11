@@ -73,6 +73,13 @@
     return [supportedFileTypeSuffixes containsObject:extension];
 }
 
+- (BOOL)isVideoLink
+{
+    NSSet *supportedFileTypeSuffixes = [NSSet setWithObjects:@"gifv", @"mov", @"mp4", @"mpv", @"3gp", nil];
+    NSString *extension = [[self URL] pathExtension];
+    return [supportedFileTypeSuffixes containsObject:extension];
+}
+
 #pragma mark - MTLModel
 
 + (NSValueTransformer *)totalReportsJSONTransformer

@@ -174,4 +174,9 @@
  */
 - (BOOL)isImageLink;
 
+/**
+ Whether or not the link has a video URL.
+ */
+- (BOOL)isVideoLink;
+
 @end
