@@ -34,10 +34,10 @@ static NSString * const kOAuthScopeVote = @"vote";
  The current clientId and clientSecret for this app.
  Only required if authenticating via OAuth
  */
-@property (nonatomic, strong) NSString *clientId;
-@property (nonatomic, strong) NSString *clientSecret;
-@property (nonatomic, strong) NSString *accessToken;
-@property (nonatomic, strong) NSString *refreshToken;
+@property (nonatomic, copy) NSString *clientId;
+@property (nonatomic, copy) NSString *clientSecret;
+@property (nonatomic, copy) NSString *accessToken;
+@property (nonatomic, copy) NSString *refreshToken;
 
 /**
  Returns a RKClient ready for OAuth
