@@ -10,8 +10,24 @@
 #import "RKUser.h"
 #import "RKResponseSerializer.h"
 #import "RKObjectBuilder.h"
-
 #import "RKClient+Users.h"
+
+
+NSString * const kOAuthScopeEdit = @"edit";
+NSString * const kOAuthScopeHistory = @"history";
+NSString * const kOAuthScopeIdentity = @"identity";
+NSString * const kOAuthScopeModConfig = @"modconfig";
+NSString * const kOAuthScopeModFlair = @"modflair";
+NSString * const kOAuthScopeModLog = @"modlog";
+NSString * const kOAuthScopeModPosts = @"modposts";
+NSString * const kOAuthScopeMySubreddits = @"mysubreddits";
+NSString * const kOAuthScopePrivateMessages = @"privatemessages";
+NSString * const kOAuthScopeRead = @"read";
+NSString * const kOAuthScopeSave = @"save";
+NSString * const kOAuthScopeSubmit = @"submit";
+NSString * const kOAuthScopeSubscribe = @"subscribe";
+NSString * const kOAuthScopeVote = @"vote";
+
 
 @interface RKOAuthClient ()
 
