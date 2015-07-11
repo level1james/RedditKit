@@ -39,8 +39,7 @@ NSString * const kOAuthScopeVote = @"vote";
 
 - (id)initWithClientId:(NSString *)clientId clientSecret:(NSString *)clientSecret
 {
-    if (self = [super initWithBaseURL:[[self class] APIBaseURL]])
-	{
+    if (self = [super initWithBaseURL:[[self class] APIBaseURL]]) {
         self.requestSerializer = [AFHTTPRequestSerializer serializer];
         self.responseSerializer = [RKResponseSerializer serializer];
         _clientId = clientId;
@@ -73,12 +72,13 @@ NSString * const kOAuthScopeVote = @"vote";
     return @"api/v1/me";
 }
 
-- (void)setClientId:(NSString *)clientId clientSecret:(NSString*)clientSecret{
+- (void)setClientId:(NSString *)clientId clientSecret:(NSString*)clientSecret {
     _clientId = [clientId copy];
     _clientSecret = [clientSecret copy];
 }
 
-- (void)setOAuthorizationHeader{
+- (void)setOAuthorizationHeader {
+    
     NSAssert(_clientId != nil, @"You must first set a clientId");
     NSAssert(_clientSecret != nil, @"You must first set a clientSecret");
     [[self requestSerializer] setAuthorizationHeaderFieldWithUsername:_clientId password:_clientSecret];
@@ -109,7 +109,11 @@ NSString * const kOAuthScopeVote = @"vote";
     NSParameterAssert(state);
     
     NSDictionary *parameters = @{@"code": accessCode, @"state": state, @"redirect_uri": redirectURI, @"grant_type": @"authorization_code"};
-    return [self accessTokensWithParams:parameters completion:completion];
+    return [self accessTokenWithParameters:parameters completion:completion];
+}
+
+- (NSURLSessionDataTask *)refreshGuestTokenWithTimer:(NSTimer *)timer {
+    return [self guestTokenWithCompletion:nil];
 }
 
 - (NSURLSessionDataTask *)refreshAccessTokenWithTimer:(NSTimer *)timer
@@ -125,7 +129,7 @@ NSString * const kOAuthScopeVote = @"vote";
     NSParameterAssert(state);
     
     NSDictionary *parameters = @{@"refresh_token": refreshToken, @"state": state, @"redirect_uri": redirectURI, @"grant_type": @"refresh_token"};
-    return [self accessTokensWithParams:parameters completion:completion];
+    return [self accessTokenWithParameters:parameters completion:completion];
 }
 
 - (NSURLSessionDataTask *)userInfoWithCompletion:(RKObjectCompletionBlock)completion
@@ -147,110 +151,88 @@ NSString * const kOAuthScopeVote = @"vote";
     return authenticationTask;
 }
 
-- (NSURLSessionDataTask *)accessTokensWithParams:(NSDictionary*)parameters completion:(RKCompletionBlock)completion
-{
+- (void)revokeDeviceID {
+    
+}
+
+- (NSURLSessionDataTask *)guestTokenWithCompletion:(RKCompletionBlock)completion {
+    
+    NSString *deviceID = [[NSUUID alloc] init].UUIDString;
+
+    NSString *grantType = @"https://oauth.reddit.com/grants/installed_client";
+    
+    NSDictionary *parameters = @{@"grant_type": grantType,
+                                 @"device_id": deviceID};
+    
+    return [self accessTokenWithParameters:parameters completion:completion];
+}
+
+- (NSURLSessionDataTask *)accessTokenWithParameters:(NSDictionary *)parameters completion:(RKCompletionBlock)completion {
+    
     [self setOAuthorizationHeader];
     NSURL *baseURL = [[self class] APIBaseLoginURL];
     NSString *URLString = [[NSURL URLWithString:@"api/v1/access_token" relativeToURL:baseURL] absoluteString];
+    
     
     NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"POST" URLString:URLString parameters:parameters error:nil];
     
     __weak __typeof(self)weakSelf = self;
     NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-        if (!error)
-        {
-            _accessToken = responseObject[@"access_token"];
-            if (responseObject[@"refresh_token"] && responseObject[@"refresh_token"] != [NSNull null]) {
-                _refreshToken = responseObject[@"refresh_token"];
-            } else {
-                _refreshToken = parameters[@"refresh_token"];
-            }
-            //if our token expires, we should refresh it
-            if (responseObject[@"expires_in"]) {
-                //if we have an existing timer, invalidate it so it doesn't fire twice
-                if (_tokenRefreshTimer) {
-                    [_tokenRefreshTimer invalidate];
-                }
-                int seconds = [responseObject[@"expires_in"] intValue] - 10; //be a little aggressive and refresh 10 seconds before our token expires
-                _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:parameters repeats:NO];
-            }
-            [self setBearerAccessToken:_accessToken];
-            if (!self.currentUser) {
-                [weakSelf loadUserAccountWithCallback:^(NSError *error) {
-                    if (completion) {
-                        completion(error);
-                    }
-                }];
-            }
-            else if (completion)
-            {
-                completion(nil);
-            }
-        }
-        else if (completion) {
-            completion(error);
-        }
+        
+        [weakSelf handleOAuthResponse:responseObject parameters:parameters error:error completion:completion];
+        
     }];
     
     [authenticationTask resume];
-    
     return authenticationTask;
 }
 
-- (NSURLSessionDataTask *)guestTokenWithDeviceID:(NSString *)deviceID completion:(RKCompletionBlock)completion
-{
-    [self setOAuthorizationHeader];
-    NSURL *baseURL = [[self class] APIBaseLoginURL];
-    NSString *URLString = [[NSURL URLWithString:@"api/v1/access_token" relativeToURL:baseURL] absoluteString];
+- (void)handleOAuthResponse:(id)responseObject parameters:(NSDictionary *)parameters error:(NSError *)error completion:(RKCompletionBlock)completionBlock {
     
-    NSString *grantType = @"https://oauth.reddit.com/grants/installed_client";
-    NSString *postData = [NSString stringWithFormat:@"grant_type=%@&device_id=%@", grantType, deviceID];
-    
-    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"POST" URLString:URLString parameters:nil error:nil];
-    request.HTTPBody = [postData dataUsingEncoding:NSUTF8StringEncoding];
-    request.HTTPMethod = @"POST";
-    
-    __weak __typeof(self)weakSelf = self;
-    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-        if (!error)
-        {
-            _accessToken = responseObject[@"access_token"];
-            if (responseObject[@"refresh_token"] && responseObject[@"refresh_token"] != [NSNull null]) {
-                _refreshToken = responseObject[@"refresh_token"];
-            } else {
-                _refreshToken = nil;
-            }
-            //if our token expires, we should refresh it
-            if (responseObject[@"expires_in"]) {
-                //if we have an existing timer, invalidate it so it doesn't fire twice
-                if (_tokenRefreshTimer) {
-                    [_tokenRefreshTimer invalidate];
-                }
-                int seconds = [responseObject[@"expires_in"] intValue] - 10; //be a little aggressive and refresh 10 seconds before our token expires
-                _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:nil repeats:NO];
-            }
-            [self setBearerAccessToken:_accessToken];
-            if (!self.currentUser) {
-                [weakSelf loadUserAccountWithCallback:^(NSError *error) {
-                    if (completion) {
-                        completion(error);
-                    }
-                }];
-            }
-            else if (completion)
-            {
-                completion(nil);
-            }
+    if (!error) {
+        
+        NSLog(@"%@", responseObject);
+        NSString *accessToken = responseObject[@"access_token"];
+        NSString *refreshToken = responseObject[@"refresh_token"] != [NSNull null] ? responseObject[@"refresh_token"] : nil;
+        NSTimeInterval expiration = [responseObject[@"expires_in"] doubleValue];
+        
+        if (!accessToken) {
+            accessToken = parameters[@"code"];
         }
-        else if (completion) {
-            completion(error);
+        
+        
+        [self setBearerAccessToken:accessToken];
+        [self updateTimerWithRefreshToken:refreshToken expiration:expiration parameters:parameters];
+        
+        if (!self.currentUser) {
+            [self loadUserAccountWithCallback:^(NSError *error) {
+                completionBlock ? completionBlock(error) : nil;
+            }];
+        } else if (completionBlock) {
+            completionBlock(nil);
         }
-    }];
-    
-    [authenticationTask resume];
-    
-    return authenticationTask;
+    } else if (completionBlock) {
+        completionBlock(error);
+    }
 }
+
+- (void)updateTimerWithRefreshToken:(NSString *)refreshToken expiration:(NSTimeInterval)expiration parameters:(NSDictionary *)parameters {
+    
+    NSParameterAssert(expiration);
+    
+    // if we have an existing timer, invalidate it so it doesn't fire twice
+    
+    [_tokenRefreshTimer invalidate];
+    NSTimeInterval seconds = expiration - 10; //be a little aggressive and refresh 10 seconds before our token expires
+    self.refreshToken = refreshToken;
+    
+    if (refreshToken) {
+        _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:parameters repeats:NO];
+    } else {
+        _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshGuestTokenWithTimer:) userInfo:nil repeats:NO];
+    }
+}
+
 
 - (void)loadUserAccountWithCallback:(RKCompletionBlock)completion
 {

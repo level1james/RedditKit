@@ -51,5 +51,5 @@ extern NSString * const kOAuthScopeVote;
 - (NSURL *)oauthURLWithRedirectURI:(NSString *)redirectURI state:(NSString *)state scope:(NSArray*)scope compact:(BOOL)compact;
 - (NSURLSessionDataTask *)signInWithAccessCode:(NSString *)accessCode redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion;
 - (NSURLSessionDataTask *)refreshAccessToken:(NSString*)refreshToken redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion;
-- (NSURLSessionDataTask *)guestTokenWithDeviceID:(NSString *)deviceID completion:(RKCompletionBlock)completion;
+- (NSURLSessionDataTask *)guestTokenWithCompletion:(RKCompletionBlock)completion;
 @end
