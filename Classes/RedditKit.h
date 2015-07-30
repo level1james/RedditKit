@@ -39,8 +39,11 @@
 #import "RKClient+Voting.h"
 #import "RKClient+Wiki.h"
 
+#import "RKMoreComments.h"
 #import "RKComment.h"
+#import "RKFullName.h"
 #import "RKLink.h"
+#import "RKLinkEmbeddedMedia.h"
 #import "RKMessage.h"
 #import "RKMultireddit.h"
 #import "RKMultiredditDescription.h"

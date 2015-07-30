@@ -238,19 +238,15 @@ NSString * const kOAuthScopeVote = @"vote";
 - (void)loadUserAccountWithCallback:(RKCompletionBlock)completion
 {
     __weak __typeof(self)weakSelf = self;
-    [self userInfoWithCompletion:^(id object, NSError *error) {
+    [self currentUserWithCompletion:^(id object, NSError *error) {
         if (error) {
             completion(error);
         } else {
-            RKUser *account = [RKObjectBuilder objectFromJSON:@{@"kind": kRKObjectTypeAccount, @"data":object}];
-            if (account && !error) {
-                weakSelf.currentUser = account;
-                if (completion)
-                {
-                    completion(nil);
-                }
-            } else if (completion) {
-                completion(error);
+            weakSelf.currentUser = object;
+            
+            if (completion)
+            {
+                completion(nil);
             }
         }
     }];

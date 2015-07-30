@@ -23,6 +23,8 @@
 #import "RKVotable.h"
 #import "RKImageMetadata.h"
 
+@class RKLinkEmbeddedMedia;
+
 @interface RKLink : RKVotable
 
 /**
@@ -56,9 +58,31 @@
 @property (nonatomic, copy, readonly) NSString *author;
 
 /**
+ The ratio of upvotes to downvotes.
+ This is the percentage of how many users like this link.
+ 
+ @note The upvoteRatio is only available to links which have had their information
+ expanded via `linkByExpandingInformationForLink:completion:`.
+ 
+ The upvote ratio is not explicitly rounded to any specific precision. When displaying
+ the ratio to the screen, you will want to specify this yourself.
+ */
+@property (nonatomic, assign, readonly) CGFloat upvoteRatio;
+
+/**
  The time of editing, or nil if it has not been edited.
  */
 @property (nonatomic, strong, readonly) NSDate *edited;
+
+/**
+ The number of times the link has been gilded.
+ */
+@property (nonatomic, assign, readonly) NSUInteger gilded;
+
+/**
+ Whether the link has been archived.
+ */
+@property (nonatomic, assign, readonly, getter=isArchived) BOOL archived;
 
 /**
  Whether the link has been distinguished by a moderator or admin.
@@ -85,7 +109,7 @@
 /**
  Whether the link has been marked NSFW.
  */
-@property (nonatomic, assign, readonly, getter = isNSFW) BOOL NSFW;
+@property (nonatomic, assign, readonly, getter=isNSFW) BOOL NSFW;
 
 /**
  Whether the link has been saved by the current user.
@@ -128,6 +152,11 @@
  The full name of the subreddit to which the link was posted.
  */
 @property (nonatomic, copy, readonly) NSString *subredditFullName;
+
+/**
+ The media embedded in this link, if any.
+ */
+@property (nonatomic, strong, readonly) RKLinkEmbeddedMedia *media;
 
 /**
  The URL of the thumbnail for the link.
@@ -178,5 +207,12 @@
  Whether or not the link has a video URL.
  */
 - (BOOL)isVideoLink;
+
+/**
+ Returns the URL in a shortened format. This uses reddit's URL shortener.
+ 
+ @example http://redd.it/92dd8
+ */
+- (NSURL *)shortURL;
 
 @end

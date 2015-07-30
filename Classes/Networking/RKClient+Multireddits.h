@@ -30,6 +30,14 @@
 #pragma mark - Getting Multireddit Information
 
 /**
+ Builds a multireddit path from a username and multireddit name.
+ 
+ @param username The username of the user who owns the multireddit.
+ @param multiredditName The name of the multireddit.
+ */
+- (NSString *)multiredditPathForUsername:(NSString *)username multiredditName:(NSString *)multiredditName;
+
+/**
  Fetches the current user's multireddits.
  
  @param completion An optional block to be executed on the completion of a request.
@@ -53,6 +61,14 @@
  @param completion An optional block to be executed on the completion of a request.
  */
 - (NSURLSessionDataTask *)multiredditWithName:(NSString *)multiredditName userWithUsername:(NSString *)username completion:(RKObjectCompletionBlock)completion;
+
+/**
+ Gets a multireddit with a given path
+ 
+ @param multiredditPath The path of the multireddit to fetch. (format: /user/username/m/multireddit_name)
+ @param completion An optional block to be executed on the completion of a request.
+ */
+- (NSURLSessionDataTask *)multiredditWithPath:(NSString *)multiredditPath completion:(RKObjectCompletionBlock)completion;
 
 /**
  Gets the description of a multireddit.

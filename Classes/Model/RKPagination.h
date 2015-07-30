@@ -20,8 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import <Foundation/Foundation.h>
-
 typedef NS_ENUM(NSUInteger, RKCommentSortingMethod) {
     RKCommentSortingMethodTop = 1,
     RKCommentSortingMethodBest,
@@ -47,11 +45,11 @@ typedef NS_ENUM(NSUInteger, RKTimeSortingMethod) {
     RKTimeSortingMethodAllTime
 };
 
-// extern NSString * NSStringFromCommentSortingMethod(RKCommentSortingMethod sortingMethod);
-// extern NSString * NSStringFromTimeSortingMethod(RKTimeSortingMethod sortingMethod);
-// extern NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sortingMethod);
+extern NSString * RKStringFromCommentSortingMethod(RKCommentSortingMethod sortingMethod);
+extern NSString * RKStringFromTimeSortingMethod(RKTimeSortingMethod sortingMethod);
+extern NSString * RKStringFromUserContentSortingMethod(RKUserContentSortingMethod sortingMethod);
 
-@interface RKPagination : NSObject
+@interface RKPagination : NSObject <NSSecureCoding>
 
 /*
  The total number of things to return. This is 25 by default, and limited to 100.

@@ -26,7 +26,7 @@
 #import "RKMessage.h"
 #import "RKPagination.h"
 
-NSString * NSStringFromMessageCategory(RKMessageCategory messageCategory)
+NSString * RKStringFromMessageCategory(RKMessageCategory messageCategory)
 {
     switch (messageCategory)
     {
@@ -81,9 +81,11 @@ NSString * NSStringFromMessageCategory(RKMessageCategory messageCategory)
 
 - (NSURLSessionDataTask *)messagesInCategory:(RKMessageCategory)category pagination:(RKPagination *)pagination markRead:(BOOL)read completion:(RKListingCompletionBlock)completion
 {
-    NSString *path = [NSString stringWithFormat:@"message/%@.json", NSStringFromMessageCategory(category)];
+    NSString *path = [NSString stringWithFormat:@"message/%@.json", RKStringFromMessageCategory(category)];
+    NSString *markRead = [self stringFromBoolean:read];
+    NSDictionary *parameters = @{ @"mark": markRead };
     
-	return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
+	return [self listingTaskWithPath:path parameters:parameters pagination:pagination completion:completion];
 }
 
 #pragma mark - Marking As Read/Unread
@@ -91,6 +93,19 @@ NSString * NSStringFromMessageCategory(RKMessageCategory messageCategory)
 - (NSURLSessionDataTask *)markMessageAsRead:(RKMessage *)message completion:(RKCompletionBlock)completion
 {
     return [self markMessageWithFullNameAsRead:message.fullName completion:completion];
+}
+
+- (NSURLSessionDataTask *)markMessageArrayAsRead:(NSArray *)messages completion:(RKCompletionBlock)completion
+{
+    NSParameterAssert(messages);
+    
+    [messages enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        NSAssert([obj isKindOfClass:[RKMessage class]], @"Object contained in message array must be of type RKMessage");
+    }];
+    
+    NSArray *things = [messages valueForKey:@"fullName"];
+    NSDictionary *parameters = @{@"id": [things componentsJoinedByString:@","]};
+    return [self basicPostTaskWithPath:@"api/read_message" parameters:parameters completion:completion];
 }
 
 - (NSURLSessionDataTask *)markMessageWithFullNameAsRead:(NSString *)fullName completion:(RKCompletionBlock)completion
@@ -104,6 +119,19 @@ NSString * NSStringFromMessageCategory(RKMessageCategory messageCategory)
 - (NSURLSessionDataTask *)markMessageAsUnread:(RKMessage *)message completion:(RKCompletionBlock)completion
 {
     return [self markMessageWithFullNameAsUnread:message.fullName completion:completion];
+}
+
+- (NSURLSessionDataTask *)markMessageArrayAsUnread:(NSArray *)messages completion:(RKCompletionBlock)completion
+{
+    NSParameterAssert(messages);
+    
+    [messages enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        NSAssert([obj isKindOfClass:[RKMessage class]], @"Object contained in message array must be of type RKMessage");
+    }];
+    
+    NSArray *things = [messages valueForKey:@"fullName"];
+    NSDictionary *parameters = @{@"id": [things componentsJoinedByString:@","]};
+    return [self basicPostTaskWithPath:@"api/unread_message" parameters:parameters completion:completion];
 }
 
 - (NSURLSessionDataTask *)markMessageWithFullNameAsUnread:(NSString *)fullName completion:(RKCompletionBlock)completion

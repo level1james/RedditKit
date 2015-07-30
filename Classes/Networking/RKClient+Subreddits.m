@@ -21,10 +21,14 @@
 // THE SOFTWARE.
 
 #import "RKClient+Subreddits.h"
-#import "RKClient+Requests.h"
-#import "RKSubreddit.h"
-#import "RKPagination.h"
+
 #import "RKLink.h"
+#import "RKPagination.h"
+#import "RKObjectBuilder.h"
+#import "RKSubreddit.h"
+
+#import "RKClient+Errors.h"
+#import "RKClient+Requests.h"
 
 @implementation RKClient (Subreddits)
 
@@ -41,6 +45,11 @@
         
         if (responseObject)
         {
+            if (![[responseObject objectForKey:@"kind"] isEqualToString:kRKObjectTypeSubreddit]) {
+                completion(nil, [RKClient invalidSubredditError]);
+                return;
+            }
+            
             NSError *mantleError = nil;
             RKSubreddit *subreddit = [MTLJSONAdapter modelOfClass:[RKSubreddit class] fromJSONDictionary:responseObject error:&mantleError];
             
@@ -94,6 +103,16 @@
     }];
 }
 
+- (NSURLSessionDataTask *)subredditsByFullNames:(NSArray *)subredditFullNames completion:(RKArrayCompletionBlock)completion
+{
+	NSParameterAssert(subredditFullNames);
+	
+	NSString *subredditFullNamesString = [subredditFullNames componentsJoinedByString:@","];
+	NSDictionary *parameters = @{@"id": subredditFullNamesString};
+	
+	return [self listingTaskWithPath:@"api/info.json" parameters:parameters completion:completion];
+}
+
 - (NSURLSessionDataTask *)recommendedSubredditsForSubreddits:(NSArray *)subreddits completion:(RKArrayCompletionBlock)completion
 {
     NSParameterAssert(subreddits);
@@ -117,6 +136,50 @@
             completion(nil, error);
         }
     }];
+}
+
+- (NSURLSessionDataTask *)randomSubredditWithCompletion:(RKObjectCompletionBlock)completion
+{
+    return [self getPath:@"r/random" parameters:nil completion:^(NSHTTPURLResponse *response, NSArray *responseObject, NSError *error) {
+        if (!completion)
+        {
+            return;
+        }
+        
+        if (error)
+        {
+            completion(nil, error);
+        }
+        else
+        {
+            NSURL *subredditURL = response.URL;
+            NSString *subredditName = [subredditURL lastPathComponent];
+            
+            [self subredditWithName:subredditName completion:completion];
+        }
+    }];
+}
+
+- (NSURLSessionDataTask *)randomNSFWSubredditWithCompletion:(RKObjectCompletionBlock)completion
+{
+	return [self getPath:@"r/randnsfw" parameters:nil completion:^(NSHTTPURLResponse *response, NSArray *responseObject, NSError *error) {
+		if (!completion)
+		{
+			return;
+		}
+
+		if (error)
+		{
+			completion(nil, error);
+		}
+		else
+		{
+			NSURL *subredditURL = response.URL;
+			NSString *subredditName = [subredditURL lastPathComponent];
+
+			[self subredditWithName:subredditName completion:completion];
+		}
+	}];
 }
 
 #pragma mark - Subscribing

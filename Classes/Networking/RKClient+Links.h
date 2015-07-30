@@ -28,10 +28,13 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
 	RKSubredditCategoryNew,
 	RKSubredditCategoryRising,
 	RKSubredditCategoryControversial,
-	RKSubredditCategoryTop
+	RKSubredditCategoryTop,
+    RKSubredditCategoryPromoted
 };
 
-@class RKLink, RKSubreddit;
+extern NSString * RKStringFromSubredditCategory(RKSubredditCategory category);
+
+@class RKLink, RKSubreddit, RKMultireddit;
 
 @interface RKClient (Links)
 
@@ -129,12 +132,58 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
 - (NSURLSessionDataTask *)linksInSubredditWithName:(NSString *)subredditName category:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
 
 /**
+ Fetches links from a multireddit
+ 
+ @param multireddit The multireddit from which to fetch links.
+ @param pagination The pagination object to be sent with the request.
+ @param completion An optional block to be executed upon request completion. It takes three arguments: an array of RKLinks, an RKPagination object, and any error that occurred.
+ */
+- (NSURLSessionDataTask *)linksInMultireddit:(RKMultireddit *)multireddit pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
+ Fetches links from a multireddit
+ 
+ @param multireddit The multireddit from which to fetch links.
+ @param category The category from which to fetch links. Defaults to RKSubredditCategoryHot.
+ @param pagination The pagination object to be sent with the request.
+ @param completion An optional block to be executed upon request completion. It takes three arguments: an array of RKLinks, an RKPagination object, and any error that occurred.
+ */
+- (NSURLSessionDataTask *)linksInMultireddit:(RKMultireddit *)multireddit category:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
+ Fetches links from a multireddit
+ 
+ @param multiredditPath The path of the multireddit from which to fetch links.
+ @param pagination The pagination object to be sent with the request.
+ @param completion An optional block to be executed upon request completion. It takes three arguments: an array of RKLinks, an RKPagination object, and any error that occurred.
+ */
+- (NSURLSessionDataTask *)linksInMultiredditWithPath:(NSString *)multiredditPath pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
+ Fetches links from a multireddit
+ 
+ @param multiredditPath The path of the multireddit from which to fetch links.
+ @param category The category from which to fetch links. Defaults to RKSubredditCategoryHot.
+ @param pagination The pagination object to be sent with the request.
+ @param completion An optional block to be executed upon request completion. It takes three arguments: an array of RKLinks, an RKPagination object, and any error that occurred.
+ */
+- (NSURLSessionDataTask *)linksInMultiredditWithPath:(NSString *)multiredditPath category:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
  Fetches a link object.
  
  @param fullName The link's full name.
  @param completion An optional block to be executed upon request completion. It takes two arguments: the RKLink object, and any error that occurred.
  */
 - (NSURLSessionDataTask *)linkWithFullName:(NSString *)fullName completion:(RKObjectCompletionBlock)completion;
+
+/**
+ Takes an RKLink object and returns a new RKLink with extra information, such as the upvoteRatio.
+ 
+ @param link The link for which to expand information.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: the RKLink object, and any error that occurred.
+ */
+- (NSURLSessionDataTask *)linkByExpandingInformationForLink:(RKLink *)link completion:(RKObjectCompletionBlock)completion;
 
 #pragma mark - Submitting
 
@@ -146,7 +195,9 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
  @param URL The URL to submit.
  @param captchaIdentifier The optional identifier of the CAPTCHA you are submitting with this post.
  @param captchaValue The optional value of the CAPTCHA you are submitting with this post.
- @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: a dictionary containing `id`, `name` and `url` keys (with their values related to the newly submitted URL), any error that occurred.
+ 
+ @note This does not resubmit the link if it already exists.
  */
 - (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subreddit:(RKSubreddit *)subreddit URL:(NSURL *)URL captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion;
 
@@ -158,9 +209,24 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
  @param URL The URL to submit.
  @param captchaIdentifier The optional identifier of the CAPTCHA you are submitting with this post.
  @param captchaValue The optional value of the CAPTCHA you are submitting with this post.
- @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: a dictionary containing `id`, `name` and `url` keys (with their values related to the newly submitted URL), any error that occurred.
+ 
+ @note This does not resubmit the link if it already exists.
  */
 - (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName URL:(NSURL *)URL captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion;
+
+/**
+ Submits a link post.
+ 
+ @param title The title of the post.
+ @param subredditName The name of the subreddit in which to submit the post.
+ @param URL The URL to submit.
+ @param resubmit Whether to resubmit the link if it already exists.
+ @param captchaIdentifier The optional identifier of the CAPTCHA you are submitting with this post.
+ @param captchaValue The optional value of the CAPTCHA you are submitting with this post.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: a dictionary containing `id`, `name` and `url` keys (with their values related to the newly submitted URL), any error that occurred.
+ */
+- (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName URL:(NSURL *)URL resubmit:(BOOL)resubmit captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion;
 
 /**
  Submits a self post.
@@ -170,7 +236,7 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
  @param text The text to submit.
  @param captchaIdentifier The optional identifier of the CAPTCHA you are submitting with this post.
  @param captchaValue The optional value of the CAPTCHA you are submitting with this post.
- @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: a dictionary containing `id`, `name` and `url` keys (with their values related to the newly submitted URL), any error that occurred.
  */
 - (NSURLSessionDataTask *)submitSelfPostWithTitle:(NSString *)title subreddit:(RKSubreddit *)subreddit text:(NSString *)text captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion;
 
@@ -182,7 +248,7 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
  @param text The text to submit.
  @param captchaIdentifier The optional identifier of the CAPTCHA you are submitting with this post.
  @param captchaValue The optional value of the CAPTCHA you are submitting with this post.
- @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ @param completion An optional block to be executed upon request completion. It takes two arguments: a dictionary containing `id`, `name` and `url` keys (with their values related to the newly submitted URL), any error that occurred.
  */
 - (NSURLSessionDataTask *)submitSelfPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName text:(NSString *)text captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion;
 
@@ -253,5 +319,22 @@ typedef NS_ENUM(NSUInteger, RKSubredditCategory) {
  @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
  */
 - (NSURLSessionDataTask *)unhideLinkWithFullName:(NSString *)fullName completion:(RKCompletionBlock)completion;
+
+/**
+ Stores a link visit for a gold user.
+ 
+ @param link The link to store.
+ @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ */
+- (NSURLSessionDataTask *)storeVisitedLink:(RKLink *)link completion:(RKCompletionBlock)completion;
+
+
+/**
+ Stores a link visit for a gold user.
+ 
+ @param fullName The full name of the link to store.
+ @param completion An optional block to be executed upon request completion. Its only argument is any error that occurred.
+ */
+- (NSURLSessionDataTask *)storeVisitedLinkWithFullName:(NSString *)fullName completion:(RKCompletionBlock)completion;
 
 @end

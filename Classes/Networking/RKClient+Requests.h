@@ -38,7 +38,7 @@ typedef void(^RKRequestCompletionBlock)(NSHTTPURLResponse *response, id response
 - (NSURLSessionDataTask *)basicPostAndResponseTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKObjectCompletionBlock)completion;
 
 /**
- Many of reddit's API methods require a set of parameters and simply return an error if they fail, and nothing (of value, at least) when they succeed.
+ Many of reddit's API methods require a set of parameters and simply return an error if they fail, and nothing of value when they succeed.
  This method eliminates much of the repetition when writing methods around these methods.
  
  @param path The path to request.
@@ -46,6 +46,33 @@ typedef void(^RKRequestCompletionBlock)(NSHTTPURLResponse *response, id response
  @param completion A block to execute at the end of the request.
  */
 - (NSURLSessionDataTask *)basicPostTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKCompletionBlock)completion;
+
+/**
+ This method wraps around the 'api/comment' API (aka "Submit Comment" API) and/or the "api/editusertext" API, using parameters set into the body of an HTTP POST request.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)postSubmitCommentOrEditUserTextTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKObjectCompletionBlock)completion;
+
+/**
+ This method wraps around the 'api/morechildren' API, using parameters set into the body of an HTTP POST request.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)postMoreCommentsListingTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKArrayCompletionBlock)completion;
+
+/**
+ This method makes a request for a listing and converts the response into objects.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)listingTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKArrayCompletionBlock)completion;
 
 /**
  This method makes a request for a listing and converts the response into objects.
@@ -56,6 +83,41 @@ typedef void(^RKRequestCompletionBlock)(NSHTTPURLResponse *response, id response
  @param completion A block to execute at the end of the request.
  */
 - (NSURLSessionDataTask *)listingTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
+ This method makes a request for a listing and returns the full response.
+ This is in contrast to listingTaskWithPath:parameters:pagination:completion: which returns
+ a listing in its formatted state, with all JSON parsed.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param pagination The optional pagination object.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)fullListingWithPath:(NSString *)path parameters:(NSDictionary *)parameters pagination:(RKPagination *)pagination completion:(RKObjectCompletionBlock)completion;
+
+/**
+ This method makes a request for a listing and converts the response into objects.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param pagination The optional pagination object.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)postListingTaskWithPath:(NSString *)path parameters:(NSDictionary *)parameters pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion;
+
+/**
+ This method makes a request for a listing and returns the full response.
+ This is in contrast to listingTaskWithPath:parameters:pagination:completion: which returns
+ a listing in its formatted state, with all JSON parsed.
+ 
+ @param path The path to request.
+ @param parameters The parameters to pass with the request.
+ @param pagination The optional pagination object.
+ @param completion A block to execute at the end of the request.
+ */
+- (NSURLSessionDataTask *)fullPostListingWithPath:(NSString *)path parameters:(NSDictionary *)parameters pagination:(RKPagination *)pagination completion:(RKObjectCompletionBlock)completion;
+
 
 /**
  This method wraps around the 'api/friend' API, as many different methods are based on this endpoint.
@@ -86,7 +148,15 @@ typedef void(^RKRequestCompletionBlock)(NSHTTPURLResponse *response, id response
  */
 - (NSArray *)objectsFromListingResponse:(NSDictionary *)listingResponse;
 
+/**
+ Extracts names from a listing response.
+ */
+- (NSArray *)namesFromListingResponse:(NSDictionary *)listingResponse;
+
+
 #pragma mark - Request Helpers
+
+- (NSString *)stringFromBoolean:(BOOL)boolean;
 
 - (NSURLSessionDataTask *)getPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKRequestCompletionBlock)completion;
 - (NSURLSessionDataTask *)postPath:(NSString *)path parameters:(NSDictionary *)parameters completion:(RKRequestCompletionBlock)completion;

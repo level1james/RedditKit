@@ -31,6 +31,14 @@
 
 #pragma mark - Getting Multireddit Information
 
+- (NSString *)multiredditPathForUsername:(NSString *)username multiredditName:(NSString *)multiredditName
+{
+    NSParameterAssert(username);
+    NSParameterAssert(multiredditName);
+    
+    return [NSString stringWithFormat:@"/user/%@/m/%@", username, multiredditName];
+}
+
 - (NSURLSessionDataTask *)multiredditsWithCompletion:(RKArrayCompletionBlock)completion
 {
 	return [self getPath:@"api/multi/mine.json" parameters:nil completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {
@@ -68,6 +76,12 @@
     NSParameterAssert(username);
     
     NSString *multiredditPath = [self pathForMultiredditWithName:multiredditName ownerName:username];
+    
+    return [self multiredditWithPath:multiredditPath completion:completion];
+}
+
+- (NSURLSessionDataTask *)multiredditWithPath:(NSString *)multiredditPath completion:(RKObjectCompletionBlock)completion
+{
     NSString *path = [NSString stringWithFormat:@"api/multi%@", multiredditPath];
     
     return [self getPath:path parameters:nil completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {

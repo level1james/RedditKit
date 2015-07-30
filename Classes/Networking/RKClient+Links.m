@@ -25,8 +25,9 @@
 #import "RKLink.h"
 #import "RKSubreddit.h"
 #import "RKPagination.h"
+#import "RKMultireddit.h"
 
-NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
+NSString * RKStringFromSubredditCategory(RKSubredditCategory category)
 {
     switch (category)
     {
@@ -45,6 +46,9 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
         case RKSubredditCategoryTop:
             return @"top";
             break;
+        case RKSubredditCategoryPromoted:
+            return @"ads";
+            break;
         default:
             return @"hot";
             break;
@@ -62,7 +66,7 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 
 - (NSURLSessionDataTask *)frontPageLinksWithCategory:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
 {
-    NSString *path = [NSString stringWithFormat:@"%@.json", NSStringFromSubredditCategory(category)];
+    NSString *path = [NSString stringWithFormat:@"%@.json", RKStringFromSubredditCategory(category)];
     return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
 }
 
@@ -73,7 +77,7 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 
 - (NSURLSessionDataTask *)linksInAllSubredditsWithCategory:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
 {
-    NSString *path = [NSString stringWithFormat:@"r/all/%@.json", NSStringFromSubredditCategory(category)];
+    NSString *path = [NSString stringWithFormat:@"r/all/%@.json", RKStringFromSubredditCategory(category)];
     return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
 }
 
@@ -84,7 +88,7 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 
 - (NSURLSessionDataTask *)linksInModeratedSubredditsWithCategory:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
 {
-    NSString *path = [NSString stringWithFormat:@"r/mod/%@.json", NSStringFromSubredditCategory(category)];
+    NSString *path = [NSString stringWithFormat:@"r/mod/%@.json", RKStringFromSubredditCategory(category)];
     return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
 }
 
@@ -107,7 +111,31 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 {
     NSParameterAssert(subredditName);
     
-    NSString *path = [NSString stringWithFormat:@"r/%@/%@.json", subredditName, NSStringFromSubredditCategory(category)];
+    NSString *path = [NSString stringWithFormat:@"r/%@/%@.json", subredditName, RKStringFromSubredditCategory(category)];
+    
+    return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
+}
+
+- (NSURLSessionDataTask *)linksInMultireddit:(RKMultireddit *)multireddit pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
+{
+    return [self linksInMultireddit:multireddit category:RKSubredditCategoryHot pagination:pagination completion:completion];
+}
+
+- (NSURLSessionDataTask *)linksInMultireddit:(RKMultireddit *)multireddit category:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
+{
+    return [self linksInMultiredditWithPath:multireddit.path category:category pagination:pagination completion:completion];
+}
+
+- (NSURLSessionDataTask *)linksInMultiredditWithPath:(NSString *)multiredditPath pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
+{
+    return [self linksInMultiredditWithPath:multiredditPath category:RKSubredditCategoryHot pagination:pagination completion:completion];
+}
+
+- (NSURLSessionDataTask *)linksInMultiredditWithPath:(NSString *)multiredditPath category:(RKSubredditCategory)category pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
+{
+    NSParameterAssert(multiredditPath);
+    
+    NSString *path = [NSString stringWithFormat:@"%@/%@.json", multiredditPath, RKStringFromSubredditCategory(category)];
     
     return [self listingTaskWithPath:path parameters:nil pagination:pagination completion:completion];
 }
@@ -130,14 +158,44 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
     }];
 }
 
+- (NSURLSessionDataTask *)linkByExpandingInformationForLink:(RKLink *)link completion:(RKObjectCompletionBlock)completion
+{
+    NSParameterAssert(link);
+    
+    NSString *path = [NSString stringWithFormat:@"r/%@/comments/%@.json", link.subreddit, link.identifier];
+    
+    return [self fullListingWithPath:path parameters:nil pagination:nil completion:^(NSArray *responseObject, NSError *error) {
+        if (responseObject)
+        {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                NSDictionary *linkResponse = [responseObject firstObject];
+                NSArray *links = [self objectsFromListingResponse:linkResponse];
+                
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completion([links firstObject], nil);
+                });
+            });
+        }
+        else
+        {
+            completion(nil, error);
+        }
+    }];
+}
+
 #pragma mark - Submitting
 
 - (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subreddit:(RKSubreddit *)subreddit URL:(NSURL *)URL captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion
 {
-    return [self submitLinkPostWithTitle:title subredditName:subreddit.title URL:URL captchaIdentifier:captchaIdentifier captchaValue:captchaValue completion:completion];
+    return [self submitLinkPostWithTitle:title subredditName:subreddit.name URL:URL captchaIdentifier:captchaIdentifier captchaValue:captchaValue completion:completion];
 }
 
 - (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName URL:(NSURL *)URL captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion
+{
+    return [self submitLinkPostWithTitle:title subredditName:subredditName URL:URL resubmit:NO captchaIdentifier:captchaIdentifier captchaValue:captchaValue completion:completion];
+}
+
+- (NSURLSessionDataTask *)submitLinkPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName URL:(NSURL *)URL resubmit:(BOOL)resubmit captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion
 {
     NSParameterAssert(title);
     NSParameterAssert(subredditName);
@@ -148,18 +206,19 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
     [parameters setObject:title forKey:@"title"];
     [parameters setObject:subredditName forKey:@"sr"];
     [parameters setObject:[URL absoluteString] forKey:@"url"];
+    [parameters setObject:[self stringFromBoolean:resubmit] forKey:@"resubmit"];
     
     if (captchaIdentifier) [parameters setObject:captchaIdentifier forKey:@"iden"];
     if (captchaValue) [parameters setObject:captchaValue forKey:@"captcha"];
     
     [parameters setObject:@"link" forKey:@"kind"];
     
-    return [self basicPostAndResponseTaskWithPath:@"api/submit" parameters:parameters completion:completion];
+    return [self linkSubmissionTaskWithParameters:parameters completion:completion];
 }
 
 - (NSURLSessionDataTask *)submitSelfPostWithTitle:(NSString *)title subreddit:(RKSubreddit *)subreddit text:(NSString *)text captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion
 {
-    return [self submitSelfPostWithTitle:title subredditName:subreddit.title text:text captchaIdentifier:captchaIdentifier captchaValue:captchaValue completion:completion];
+    return [self submitSelfPostWithTitle:title subredditName:subreddit.name text:text captchaIdentifier:captchaIdentifier captchaValue:captchaValue completion:completion];
 }
 
 - (NSURLSessionDataTask *)submitSelfPostWithTitle:(NSString *)title subredditName:(NSString *)subredditName text:(NSString *)text captchaIdentifier:(NSString *)captchaIdentifier captchaValue:(NSString *)captchaValue completion:(RKObjectCompletionBlock)completion
@@ -178,7 +237,19 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
     
     [parameters setObject:@"self" forKey:@"kind"];
     
-    return [self basicPostAndResponseTaskWithPath:@"api/submit" parameters:parameters completion:completion];
+    return [self linkSubmissionTaskWithParameters:parameters completion:completion];
+}
+
+- (NSURLSessionDataTask *)linkSubmissionTaskWithParameters:(NSDictionary *)parameters completion:(RKObjectCompletionBlock)completion
+{
+    return [self postPath:@"api/submit" parameters:parameters completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion)
+            {
+                completion([responseObject valueForKeyPath:@"json.data"], error);
+            }
+        });
+    }];
 }
 
 #pragma mark - Marking NSFW
@@ -213,7 +284,16 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 
 - (NSURLSessionDataTask *)hideLink:(RKLink *)link completion:(RKCompletionBlock)completion
 {
-    return [self hideLinkWithFullName:[link fullName] completion:completion];
+    return [self hideLinkWithFullName:[link fullName] completion:^(NSError *error) {
+        if (!error) {
+            RKLink *object = [RKLink modelWithDictionary:@{ @"hidden": @YES } error:nil];
+            [link mergeValueForKey:@"hidden" fromModel:object];
+        }
+        
+        if (completion) {
+            completion(error);
+        }
+    }];
 }
 
 - (NSURLSessionDataTask *)hideLinkWithFullName:(NSString *)fullName completion:(RKCompletionBlock)completion
@@ -226,7 +306,16 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
 
 - (NSURLSessionDataTask *)unhideLink:(RKLink *)link completion:(RKCompletionBlock)completion
 {
-    return [self unhideLinkWithFullName:[link fullName] completion:completion];
+    return [self unhideLinkWithFullName:[link fullName] completion:^(NSError *error) {
+        if (!error) {
+            RKLink *object = [RKLink modelWithDictionary:@{ @"hidden": @NO } error:nil];
+            [link mergeValueForKey:@"hidden" fromModel:object];
+        }
+        
+        if (completion) {
+            completion(error);
+        }
+    }];
 }
 
 - (NSURLSessionDataTask *)unhideLinkWithFullName:(NSString *)fullName completion:(RKCompletionBlock)completion
@@ -235,6 +324,19 @@ NSString * NSStringFromSubredditCategory(RKSubredditCategory category)
     
     NSDictionary *parameters = @{@"id": fullName};
     return [self basicPostTaskWithPath:@"api/unhide" parameters:parameters completion:completion];
+}
+
+- (NSURLSessionDataTask *)storeVisitedLink:(RKLink *)link completion:(RKCompletionBlock)completion
+{
+    return [self storeVisitedLinkWithFullName:[link fullName] completion:completion];
+}
+
+- (NSURLSessionDataTask *)storeVisitedLinkWithFullName:(NSString *)fullName completion:(RKCompletionBlock)completion
+{
+    NSParameterAssert(fullName);
+    
+    NSDictionary *parameters = @{@"links": fullName};
+    return [self basicPostTaskWithPath:@"api/store_visits" parameters:parameters completion:completion];
 }
 
 @end

@@ -99,7 +99,17 @@ NSString * const RKClientErrorDomain = @"RKClientErrorDomain";
     NSURL *baseURL = [[self class] APIBaseHTTPSURL];
     NSString *URLString = [[NSURL URLWithString:@"api/login" relativeToURL:baseURL] absoluteString];
     
-    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] requestWithMethod:@"POST" URLString:URLString parameters:parameters error:nil];
+    NSError *serializerError;
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] requestWithMethod:@"POST" URLString:URLString parameters:parameters error:&serializerError];
+    
+    if (serializerError) {
+        completion(serializerError);
+        return nil;
+    }
+    
+    // Login requests fail with 409 if an existing `reddit_session` cookie is included in the request.
+    [request setHTTPShouldHandleCookies:NO];
+    [self signOut];
     
     __weak __typeof(self)weakSelf = self;
     NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
@@ -116,8 +126,8 @@ NSString * const RKClientErrorDomain = @"RKClientErrorDomain";
             NSString *modhash = data[@"modhash"];
             NSString *sessionIdentifier = data[@"cookie"];
             
-            [weakSelf setModhash:modhash];
-            [weakSelf setSessionIdentifier:sessionIdentifier];
+            weakSelf.modhash = modhash;
+            weakSelf.sessionIdentifier = sessionIdentifier;
             
             [weakSelf currentUserWithCompletion:^(id object, NSError *error) {
                 weakSelf.currentUser = object;

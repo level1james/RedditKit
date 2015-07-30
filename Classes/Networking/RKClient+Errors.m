@@ -32,10 +32,13 @@ const NSInteger RKClientErrorInvalidCredentials = 203;
 const NSInteger RKClientErrorRateLimited = 204;
 const NSInteger RKClientErrorTooManyFlairClassNames = 205;
 const NSInteger RKClientErrorArchived = 206;
+const NSInteger RKClientErrorInvalidSubreddit = 207;
+const NSInteger RKClientErrorLinkAlreadySubmitted = 208;
 
 const NSInteger RKClientErrorInvalidMultiredditName = 401;
-const NSInteger RKClientErrorPermissionDenied = 401;
-const NSInteger RKClientErrorConflict = 401;
+const NSInteger RKClientErrorPermissionDenied = 402;
+const NSInteger RKClientErrorConflict = 403;
+const NSInteger RKClientErrorNotFound = 404;
 
 const NSInteger RKClientErrorInternalServerError = 501;
 const NSInteger RKClientErrorBadGateway = 502;
@@ -47,7 +50,12 @@ const NSInteger RKClientErrorTimedOut = 504;
     NSParameterAssert(response);
     NSParameterAssert(responseString);
     
-    switch (response.statusCode)
+    return [[self class] errorFromStatusCode:response.statusCode responseString:responseString];
+}
+
++ (NSError *)errorFromStatusCode:(NSInteger)statusCode responseString:(NSString *)responseString
+{
+    switch (statusCode)
     {
         case 200:
             if ([RKClient string:responseString containsSubstring:@"WRONG_PASSWORD"]) return [RKClient invalidCredentialsError];
@@ -56,6 +64,8 @@ const NSInteger RKClientErrorTimedOut = 504;
             if ([RKClient string:responseString containsSubstring:@"BAD_CSS_NAME"]) return [RKClient invalidCSSClassNameError];
             if ([RKClient string:responseString containsSubstring:@"TOO_OLD"]) return [RKClient archivedError];
             if ([RKClient string:responseString containsSubstring:@"TOO_MUCH_FLAIR_CSS"]) return [RKClient tooManyFlairClassNamesError];
+            if ([RKClient string:responseString containsSubstring:@"SUBREDDIT_NOEXIST"]) return [RKClient invalidSubredditError];
+            if ([RKClient string:responseString containsSubstring:@"ALREADY_SUB"]) return [RKClient linkAlreadySubmittedError];
             
             break;
         case 400:
@@ -66,6 +76,9 @@ const NSInteger RKClientErrorTimedOut = 504;
             if ([RKClient string:responseString containsSubstring:@"USER_REQUIRED"]) return [RKClient authenticationRequiredError];
             
             return [RKClient permissionDeniedError];
+            break;
+        case 404:
+            return [RKClient notFoundError];
             break;
         case 409:
             return [RKClient conflictError];
@@ -84,6 +97,40 @@ const NSInteger RKClientErrorTimedOut = 504;
             break;
         default:
             break;
+    }
+    
+    return nil;
+}
+
++ (NSError *)errorFromResponseObject:(id)responseObject
+{
+    NSParameterAssert(responseObject);
+    
+    if ([responseObject isKindOfClass:[NSDictionary class]])
+    {
+        NSDictionary *response = responseObject;
+        NSNumber *statusCodeError = response[@"error"];
+        NSArray *errors = [response valueForKeyPath:@"json.errors"];
+        
+        if ([errors isKindOfClass:[NSArray class]] && [errors count] > 0)
+        {
+            id firstObject = [errors firstObject];
+            
+            if ([firstObject isKindOfClass:[NSArray class]] && [firstObject count] > 1)
+            {
+                NSString *firstString = [firstObject firstObject];
+                NSString *secondString = [firstObject objectAtIndex:1];
+                
+                if ([firstString isKindOfClass:[NSString class]] && [secondString isKindOfClass:[NSString class]])
+                {
+                    return [[self class] errorFromStatusCode:200 responseString:firstString];
+                }
+            }
+        }
+        else if (statusCodeError)
+        {
+            return [[self class] errorFromStatusCode:[statusCodeError integerValue] responseString:@""];
+        }
     }
     
     return nil;
@@ -113,6 +160,12 @@ const NSInteger RKClientErrorTimedOut = 504;
     return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorInvalidCredentials userInfo:userInfo];
 }
 
++ (NSError *)linkAlreadySubmittedError
+{
+    NSDictionary *userInfo = [RKClient userInfoWithDescription:@"Link already submitted" failureReason:@"This link has already been submitted to this subreddit."];
+    return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorLinkAlreadySubmitted userInfo:userInfo];
+}
+
 + (NSError *)rateLimitedError
 {
     NSDictionary *userInfo = [RKClient userInfoWithDescription:@"Rate limited" failureReason:@"You have exceeded reddit's rate limit."];
@@ -123,6 +176,12 @@ const NSInteger RKClientErrorTimedOut = 504;
 {
     NSDictionary *userInfo = [RKClient userInfoWithDescription:@"Too many flair class names" failureReason:@"You have passed in too many flair class names"];
     return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorTooManyFlairClassNames userInfo:userInfo];
+}
+
++ (NSError *)invalidSubredditError
+{
+    NSDictionary *userInfo = [RKClient userInfoWithDescription:@"That subreddit does not exist" failureReason:@"You have entered an invalid subreddit name"];
+    return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorInvalidSubreddit userInfo:userInfo];
 }
 
 + (NSError *)archivedError
@@ -147,6 +206,12 @@ const NSInteger RKClientErrorTimedOut = 504;
 {
     NSDictionary *userInfo = [RKClient userInfoWithDescription:@"Conflict" failureReason:@"Your attempt to create a resource caused a conflict."];
     return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorConflict userInfo:userInfo];
+}
+
++ (NSError *)notFoundError
+{
+    NSDictionary *userInfo = [RKClient userInfoWithDescription:@"Not found" failureReason:@"This content could not be found."];
+    return [NSError errorWithDomain:RKClientErrorDomain code:RKClientErrorNotFound userInfo:userInfo];
 }
 
 + (NSError *)internalServerError

@@ -22,6 +22,7 @@
 
 #import "RKLink.h"
 #import "NSString+HTML.h"
+#import "RKLinkEmbeddedMedia.h"
 
 @implementation RKLink
 
@@ -33,6 +34,7 @@
         @"permalink": @"data.permalink",
         @"domain": @"data.domain",
         @"author": @"data.author",
+        @"media": @"data.media",
         @"totalComments": @"data.num_comments",
         @"totalReports": @"data.num_reports",
         @"subreddit": @"data.subreddit",
@@ -49,6 +51,9 @@
         @"hidden": @"data.hidden",
         @"NSFW": @"data.over_18",
         @"edited": @"data.edited",
+        @"archived": @"data.archived",
+        @"upvoteRatio": @"data.upvote_ratio",
+        @"gilded": @"data.gilded",
         @"thumbnailURL": @"data.thumbnail",
         @"authorFlairClass": @"data.author_flair_css_class",
         @"authorFlairText": @"data.author_flair_text",
@@ -80,6 +85,12 @@
     return [supportedFileTypeSuffixes containsObject:extension];
 }
 
+- (NSURL *)shortURL
+{
+    NSURL *baseURL = [NSURL URLWithString:@"http://redd.it/"];
+    return [baseURL URLByAppendingPathComponent:self.identifier];
+}
+
 #pragma mark - MTLModel
 
 + (NSValueTransformer *)totalReportsJSONTransformer
@@ -107,16 +118,16 @@
 + (NSValueTransformer *)URLJSONTransformer
 {
     return [MTLValueTransformer transformerWithBlock:^(NSString *URL) {
-        NSString *escapedURL = [URL stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        return [NSURL URLWithString:escapedURL];
+        NSString *unescapedURL = [URL stringByUnescapingHTMLEntities];
+        return [NSURL URLWithString:[unescapedURL stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     }];
 }
 
 + (NSValueTransformer *)permalinkJSONTransformer
 {
     return [MTLValueTransformer transformerWithBlock:^(NSString *permalink) {
-        NSString *escapedPermalink = [permalink stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        NSString *fullPermalink = [NSString stringWithFormat:@"http://reddit.com%@", escapedPermalink];
+        NSString *unescapedPermalink = [[permalink stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] stringByUnescapingHTMLEntities];
+        NSString *fullPermalink = [NSString stringWithFormat:@"http://reddit.com%@", unescapedPermalink];
         
         return [NSURL URLWithString:fullPermalink];
     }];
@@ -125,7 +136,11 @@
 + (NSValueTransformer *)thumbnailURLJSONTransformer
 {
     return [MTLValueTransformer transformerWithBlock:^id(NSString *thumbnailURL) {
-        if ([thumbnailURL rangeOfString:@"."].location == NSNotFound)
+//<<<<<<< HEAD
+//        if ([thumbnailURL rangeOfString:@"."].location == NSNotFound)
+//=======
+        if (![thumbnailURL isKindOfClass:[NSString class]] || [thumbnailURL isEqualToString:@"self"])
+//>>>>>>> 69c587f3eb6171ca554a778e90dfdb75f6d1a820
         {
             return nil;
         }
@@ -158,12 +173,10 @@
         for (NSDictionary *dict in jsonArray) {
             NSError *error = nil;
             id object = [MTLJSONAdapter modelOfClass:[RKImageMetadata class] fromJSONDictionary:dict error:&error];
-            if (!error)
-            {
+            if (!error) {
                 [previewImages addObject: object];
             }
-            else
-            {
+            else {
                 NSLog(@"Failed to build preview image metadata reply: %@", error);
             }
         }
@@ -171,5 +184,20 @@
     }];
 }
 
+
++ (NSValueTransformer *)mediaJSONTransformer
+{
+    return [MTLValueTransformer transformerWithBlock:^id(NSDictionary *media) {
+        NSError *error = nil;
+        RKLinkEmbeddedMedia *mediaObject = [MTLJSONAdapter modelOfClass:[RKLinkEmbeddedMedia class] fromJSONDictionary:media error:&error];
+        
+        if (error) {
+            return nil;
+        }
+        else {
+            return mediaObject;
+        }
+    }];
+}
 
 @end

@@ -22,7 +22,7 @@
 
 #import "RKPagination.h"
 
-NSString * NSStringFromCommentSortingMethod(RKCommentSortingMethod sortingMethod)
+NSString * RKStringFromCommentSortingMethod(RKCommentSortingMethod sortingMethod)
 {
     switch (sortingMethod)
     {
@@ -43,7 +43,7 @@ NSString * NSStringFromCommentSortingMethod(RKCommentSortingMethod sortingMethod
     }
 }
 
-NSString * NSStringFromTimeSortingMethod(RKTimeSortingMethod sortingMethod)
+NSString * RKStringFromTimeSortingMethod(RKTimeSortingMethod sortingMethod)
 {
     switch (sortingMethod)
     {
@@ -64,7 +64,7 @@ NSString * NSStringFromTimeSortingMethod(RKTimeSortingMethod sortingMethod)
 	}
 }
 
-NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sortingMethod)
+NSString * RKStringFromUserContentSortingMethod(RKUserContentSortingMethod sortingMethod)
 {
     switch (sortingMethod)
     {
@@ -111,6 +111,7 @@ NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sorti
 + (RKPagination *)paginationWithLimit:(NSUInteger)limit
 {
     RKPagination *pagination = [[RKPagination alloc] init];
+    
     pagination.limit = limit;
     
     return pagination;
@@ -128,14 +129,7 @@ NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sorti
 
 - (void)setLimit:(NSUInteger)limit
 {
-    if (limit > 100)
-    {
-        _limit = 100;
-    }
-    else
-    {
-        _limit = limit;
-    }
+    _limit = MIN(100, limit);
 }
 
 - (NSString *)description
@@ -165,12 +159,12 @@ NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sorti
     
     if (self.timeMethod)
     {
-        [parameters setObject:NSStringFromTimeSortingMethod(self.timeMethod) forKey:@"t"];
+        [parameters setObject:RKStringFromTimeSortingMethod(self.timeMethod) forKey:@"t"];
     }
     
     if (self.userContentSortingMethod)
     {
-        [parameters setObject:NSStringFromUserContentSortingMethod(self.userContentSortingMethod) forKey:@"sort"];
+        [parameters setObject:RKStringFromUserContentSortingMethod(self.userContentSortingMethod) forKey:@"sort"];
     }
     
     if ([parameters count] == 0)
@@ -179,6 +173,37 @@ NSString * NSStringFromUserContentSortingMethod(RKUserContentSortingMethod sorti
     }
     
     return [parameters copy];
+}
+
+#pragma mark - NSSecureCoding
+
++ (BOOL)supportsSecureCoding
+{
+    return YES;
+}
+
+- (id)initWithCoder:(NSCoder *)decoder
+{
+    if (self = [super init]) {
+        _limit = [[decoder decodeObjectOfClass:[NSNumber class] forKey:@"limit"] unsignedIntegerValue];
+        _before = [decoder decodeObjectOfClass:[NSString class] forKey:@"before"];
+        _after = [decoder decodeObjectOfClass:[NSString class] forKey:@"after"];
+        _commentSortingMethod = [[decoder decodeObjectOfClass:[NSNumber class] forKey:@"commentSortingMethod"] unsignedIntegerValue];
+        _userContentSortingMethod = [[decoder decodeObjectOfClass:[NSNumber class] forKey:@"userContentSortingMethod"] unsignedIntegerValue];
+        _timeMethod = [[decoder decodeObjectOfClass:[NSNumber class] forKey:@"timeMethod"] unsignedIntegerValue];
+    }
+    
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    [coder encodeObject:@(self.limit) forKey:@"limit"];
+    [coder encodeObject:self.before forKey:@"before"];
+    [coder encodeObject:self.after forKey:@"after"];
+    [coder encodeObject:@(self.commentSortingMethod) forKey:@"commentSortingMethod"];
+    [coder encodeObject:@(self.userContentSortingMethod) forKey:@"userContentSortingMethod"];
+    [coder encodeObject:@(self.timeMethod) forKey:@"timeMethod"];
 }
 
 @end

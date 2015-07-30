@@ -21,10 +21,7 @@
 // THE SOFTWARE.
 
 #import "RKClient.h"
-#import "RKCompletionBlocks.h"
-#import "RKPagination.h"
 
-@class AFJSONRequestOperation;
 @class RKSubreddit;
 
 @interface RKClient (Subreddits)
@@ -73,12 +70,34 @@
 - (NSURLSessionDataTask *)subredditsByTopic:(NSString *)topic completion:(RKArrayCompletionBlock)completion;
 
 /**
+ Gets a list of subreddits from their fullnames.
+ 
+ @param fullNames An array of subreddit fullnames.
+ @param completion An optional block to be executed on the completion of a request. Its collection parameter contains RKSubreddit objects.
+ */
+- (NSURLSessionDataTask *)subredditsByFullNames:(NSArray *)subredditFullNames completion:(RKArrayCompletionBlock)completion;
+
+/**
  Gets a list of recommended subreddits from an array of subreddit names.
  
  @param subreddits An array of NSStrings, each representing the name of a subreddit.
  @param completion An optional block to be executed on the completion of a request. Its collection parameter contains NSString objects representing subreddit names.
  */
 - (NSURLSessionDataTask *)recommendedSubredditsForSubreddits:(NSArray *)subreddits completion:(RKArrayCompletionBlock)completion;
+
+/**
+ Gets a random subreddit.
+ 
+ @param completion An optional block to be executed on the completion of a request. Its object parameter is an RKSubreddit object.
+ */
+- (NSURLSessionDataTask *)randomSubredditWithCompletion:(RKObjectCompletionBlock)completion;
+
+/**
+ Gets a random NSFW subreddit.
+
+ @param completion An optional block to be executed on the completion of a request. Its object parameter is an RKSubreddit object.
+ */
+- (NSURLSessionDataTask *)randomNSFWSubredditWithCompletion:(RKObjectCompletionBlock)completion;
 
 #pragma mark - Subscribing
 

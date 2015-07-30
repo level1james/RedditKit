@@ -21,22 +21,27 @@
 // THE SOFTWARE.
 
 #import "FrontPageViewController.h"
-#import "LinkTableViewCell.h"
-#import "BrowserViewController.h"
+
 #import "AuthenticationManager.h"
+#import "BrowserViewController.h"
+#import "LinkTableViewCell.h"
+
+#import <RedditKit/RedditKit.h>
 
 static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
 
-@interface FrontPageViewController ()
+@interface FrontPageViewController () <UIActionSheetDelegate>
 
 @property (nonatomic, strong) NSArray *links;
 @property (nonatomic, strong) RKPagination *currentPagination;
+@property (nonatomic, assign) RKSubredditCategory currentCategory;
 
 @property (nonatomic, strong) LinkTableViewCell *autoLayoutCell;
 @property (nonatomic, strong) NSMutableDictionary *cellHeights;
 
 @property (nonatomic, strong) AuthenticationManager *authenticationManager;
 @property (nonatomic, strong) UIBarButtonItem *accountButton;
+@property (nonatomic, strong) UIBarButtonItem *actionButton;
 
 @property (nonatomic, getter = isLoadingNewLinks) BOOL loadingNewLinks;
 
@@ -51,6 +56,8 @@ static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
 
 - (void)resetLinks;
 - (void)loadNewLinks;
+
+- (void)showSortingOptionsActionSheet;
 
 @end
 
@@ -79,6 +86,13 @@ static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
 	self.autoLayoutCell.hidden = YES;
     
 	[[self tableView] addSubview:self.autoLayoutCell];
+    
+    // Set up the toolbar:
+    
+    self.navigationController.toolbarHidden = NO;
+    UIBarButtonItem *space = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    self.actionButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(showSortingOptionsActionSheet)];
+    self.toolbarItems = @[space, self.actionButton];
     
     // Set up the navigation, and load some links:
     
@@ -191,7 +205,8 @@ static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
     self.loadingNewLinks = YES;
     
     __weak __typeof(self)weakSelf = self;
-    [[RKOAuthClient sharedClient] frontPageLinksWithPagination:self.currentPagination completion:^(NSArray *collection, RKPagination *pagination, NSError *error) {
+
+    [[RKOAuthClient sharedClient] frontPageLinksWithCategory:self.currentCategory pagination:self.currentPagination completion:^(NSArray *collection, RKPagination *pagination, NSError *error) {
         if (!error)
         {
             [[weakSelf tableView] beginUpdates];
@@ -211,6 +226,17 @@ static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
             NSLog(@"Failed to get links, with error: %@", error);
         }
     }];
+}
+
+- (void)showSortingOptionsActionSheet
+{
+    UIActionSheet *sortOptionsActionSheet = [[UIActionSheet alloc] initWithTitle:@"Sorting"
+                                                                        delegate:self
+                                                               cancelButtonTitle:@"Cancel"
+                                                          destructiveButtonTitle:nil
+                                                               otherButtonTitles:@"Hot", @"New", @"Rising", @"Controversial", @"Top", nil];
+    
+    [sortOptionsActionSheet showFromBarButtonItem:self.actionButton animated:YES];
 }
 
 #pragma mark - UITableViewDataSource
@@ -285,6 +311,16 @@ static NSString * const kLinkCellReuseIdentifier = @"kLinkCellReuseIdentifier";
 	if (scrollView.contentOffset.y >= (scrollView.contentSize.height - scrollView.bounds.size.height))
 	{
         [self loadNewLinks];
+    }
+}
+
+#pragma mark - UIActionSheetDelegate
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex
+{
+    if (buttonIndex < 5) {
+        self.currentCategory = ((RKSubredditCategory)buttonIndex + 1);
+        [self resetLinks];
     }
 }
 

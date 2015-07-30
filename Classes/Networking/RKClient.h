@@ -22,6 +22,7 @@
 
 #import "AFHTTPSessionManager.h"
 #import "RKCompletionBlocks.h"
+#import "RKPagination.h"
 
 extern NSString * const RKClientErrorDomain;
 
@@ -43,6 +44,27 @@ extern NSString * const RKClientErrorDomain;
  The session cookie value for the current user.
  */
 @property (nonatomic, strong) NSString *sessionIdentifier;
+
+/**
+ How many requests are allowed before the rate limit is reset.
+ 
+ @note This is only accurate at the time of the last request.
+ */
+@property (nonatomic, assign) NSUInteger rateLimitedRequestsRemaining;
+
+/**
+ How many requests have been made in this current rate limited period.
+ 
+ @note This is only accurate at the time of the last request.
+ */
+@property (nonatomic, assign) NSUInteger rateLimitedRequestsUsed;
+
+/**
+ The time, in seconds, until the rate limit resets.
+ 
+ @note This is only accurate at the time of the last request.
+ */
+@property (nonatomic, assign) NSTimeInterval timeUntilRateLimitReset;
 
 /**
  The user agent for requests sent to reddit.
@@ -72,6 +94,8 @@ extern NSString * const RKClientErrorDomain;
  @param username The user's username.
  @param password The user's password.
  @param completion The block to be executed upon completion of the request.
+ 
+ @note This method signs out the current client before attempting to sign in.
  */
 - (NSURLSessionDataTask *)signInWithUsername:(NSString *)username password:(NSString *)password completion:(RKCompletionBlock)completion;
 

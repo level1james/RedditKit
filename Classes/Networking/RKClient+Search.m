@@ -42,9 +42,21 @@
     NSParameterAssert(query);
     
     NSString *path = subredditName ? [NSString stringWithFormat:@"r/%@/search.json", subredditName] : @"search.json";
-    NSDictionary *parameters = @{@"q": query, @"restrict_sr": restrictSubreddit ? @"true" : @"false"};
+    NSString *restrictString = [self stringFromBoolean:restrictSubreddit];
+    NSDictionary *parameters = @{@"q": query, @"restrict_sr": restrictString };
     
     return [self listingTaskWithPath:path parameters:parameters pagination:pagination completion:completion];
+}
+
+- (NSURLSessionDataTask *)searchRedditNames:(NSString *)query includeOver18:(BOOL)includeOver18 pagination:(RKPagination *)pagination completion:(RKListingCompletionBlock)completion
+{
+    NSParameterAssert(query);
+    
+    NSString *path = @"api/search_reddit_names.json";
+    NSString *over18String = [self stringFromBoolean:includeOver18];
+    NSDictionary *parameters = @{@"query": query, @"include_over_18": over18String };
+    
+    return [self postListingTaskWithPath:path parameters:parameters pagination:pagination completion:completion];
 }
 
 @end

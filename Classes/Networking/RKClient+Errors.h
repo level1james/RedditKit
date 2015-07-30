@@ -32,13 +32,16 @@ extern const NSInteger RKClientErrorInvalidCredentials;
 extern const NSInteger RKClientErrorRateLimited;
 extern const NSInteger RKClientErrorTooManyFlairClassNames;
 extern const NSInteger RKClientErrorArchived;
+extern const NSInteger RKClientErrorInvalidSubreddit;
+extern const NSInteger RKClientErrorLinkAlreadySubmitted;
 
 extern const NSInteger RKClientErrorInvalidMultiredditName;
 extern const NSInteger RKClientErrorPermissionDenied;
 extern const NSInteger RKClientErrorConflict;
+extern const NSInteger RKClientErrorNotFound;
 
 extern const NSInteger RKClientErrorInternalServerError;
-extern const NSInteger RKClientErroBadGateway;
+extern const NSInteger RKClientErrorBadGateway;
 extern const NSInteger RKClientErrorServiceUnavailable;
 extern const NSInteger RKClientErrorTimedOut;
 
@@ -46,6 +49,8 @@ extern const NSInteger RKClientErrorTimedOut;
  Returns any errors found in a response.
  */
 + (NSError *)errorFromResponse:(NSHTTPURLResponse *)response responseString:(NSString *)responseString;
+
++ (NSError *)errorFromResponseObject:(id)responseObject;
 
 /**
  Returns an error that occurs when there is no user signed in and an attempt is made to access a resouce which requires authentication.
@@ -67,6 +72,16 @@ extern const NSInteger RKClientErrorTimedOut;
  Returns an error that occurs when the user attempts to sign in but either the username or password were incorrect.
  */
 + (NSError *)invalidCredentialsError;
+
+/**
+ Returns an error that occurs when you provide an invalid subreddit name.
+ */
++ (NSError *)invalidSubredditError;
+
+/**
+ Returns an error that occurs when you try to submit a link which has already been submitted.
+ */
++ (NSError *)linkAlreadySubmittedError;
 
 /**
  Returns an error that occurs when the user is rate limited.
@@ -92,6 +107,18 @@ extern const NSInteger RKClientErrorTimedOut;
  Returns an error that occurs when the user was denied access to a particular resource, such as a subreddit.
  */
 + (NSError *)permissionDeniedError;
+
+/**
+ Returns an error that occurs when a conflict was attempted.
+ */
++ (NSError *)conflictError;
+
+/**
+ Returns an error that occurs when trying to retrieve content that could not be found.
+ 
+ @example This happens when trying to retrive the info of a subreddit which does not exist.
+ */
++ (NSError *)notFoundError;
 
 /**
  Returns an error that occurs when the reddit servers are unavailable.

@@ -43,24 +43,35 @@
 {
     NSString *responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     
-    // Check for errors:
-    
-    NSError *responseError = [RKClient errorFromResponse:(NSHTTPURLResponse *)response responseString:responseString];
-    
-    if (responseError && error != NULL)
-    {
-        *error = responseError;
+    if ([[[response allHeaderFields] objectForKey:@"Content-Type"] rangeOfString:@"application/json"].location == NSNotFound) {
         return nil;
     }
     
-    // Parse the response:
+    // Attempt to parse the JSON:
     
-    if (responseString && ![responseString isEqualToString:@" "])
-    {
-        return [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:error];
+    NSError *parseError = nil;
+    NSDictionary *responseObject = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&parseError];
+    
+    if (parseError) {
+        NSError *responseError = [RKClient errorFromResponse:(NSHTTPURLResponse *)response responseString:responseString];
+        
+        if (responseError && error != NULL)
+        {
+            *error = responseError;
+            return nil;
+        }
+    }
+    else {
+        NSError *responseError = [RKClient errorFromResponseObject:responseObject];
+        
+        if (responseError && error != NULL)
+        {
+            *error = responseError;
+            return nil;
+        }
     }
     
-    return nil;
+    return responseObject;
 }
 
 @end

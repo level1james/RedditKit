@@ -28,7 +28,7 @@
 #import "RKLink.h"
 #import "RKSubreddit.h"
 
-NSString * NSStringFromDistinguishedStatus(RKDistinguishedStatus status)
+NSString * RKStringFromDistinguishedStatus(RKDistinguishedStatus status)
 {
     switch (status)
     {
@@ -61,7 +61,7 @@ NSString * NSStringFromDistinguishedStatus(RKDistinguishedStatus status)
 {
     NSParameterAssert(fullName);
     
-    NSString *state = sticky ? @"True" : @"False";
+    NSString *state = [self stringFromBoolean:sticky];
     NSDictionary *parameters = @{@"id": fullName, @"state": state};
     
     return [self basicPostTaskWithPath:@"api/set_subreddit_sticky" parameters:parameters completion:completion];
@@ -76,7 +76,7 @@ NSString * NSStringFromDistinguishedStatus(RKDistinguishedStatus status)
 {
     NSParameterAssert(fullName);
     
-    NSString *state = contestMode ? @"True" : @"False";
+    NSString *state = [self stringFromBoolean:contestMode];
     NSDictionary *parameters = @{@"id": fullName, @"state": state};
     
     return [self basicPostTaskWithPath:@"api/set_contest_mode" parameters:parameters completion:completion];
@@ -205,7 +205,7 @@ NSString * NSStringFromDistinguishedStatus(RKDistinguishedStatus status)
 
 - (NSURLSessionDataTask *)distinguishThingWithFullName:(NSString *)fullName status:(RKDistinguishedStatus)status completion:(RKCompletionBlock)completion
 {
-    NSDictionary *parameters = @{@"how": NSStringFromDistinguishedStatus(status), @"id": fullName};
+    NSDictionary *parameters = @{@"how": RKStringFromDistinguishedStatus(status), @"id": fullName};
     
     return [self basicPostTaskWithPath:@"api/distinguish" parameters:parameters completion:completion];
 }
@@ -441,13 +441,13 @@ NSString * NSStringFromDistinguishedStatus(RKDistinguishedStatus status)
     // This method is pretty dodgy at the moment. It passes the response's URL to the completion block if JSON parsing fails as expected.
     // The response URL will be set to the subreddit's stylesheet URL, since the API method redirects there.
     return [self getPath:path parameters:nil completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {
-        if (error.code == 3840)
+        if (error)
         {
-            completion(response.URL, nil);
+            completion(nil, error);
         }
         else
         {
-            completion(nil, error);
+            completion(response.URL, nil);
         }
     }];
 }
