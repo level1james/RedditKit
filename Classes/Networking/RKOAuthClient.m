@@ -199,6 +199,7 @@ NSString * const kOAuthScopeVote = @"vote";
         if (!accessToken) {
             accessToken = parameters[@"code"];
         }
+        _accessToken = accessToken;
         
         
         [self setBearerAccessToken:accessToken];
