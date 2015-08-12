@@ -34,10 +34,10 @@ extern NSString * const kOAuthScopeVote;
  The current clientId and clientSecret for this app.
  Only required if authenticating via OAuth
  */
-@property (nonatomic, copy) NSString *clientId;
-@property (nonatomic, copy) NSString *clientSecret;
-@property (nonatomic, copy) NSString *accessToken;
-@property (nonatomic, copy) NSString *refreshToken;
+@property (readonly, nonatomic, copy) NSString *clientId;
+@property (readonly, nonatomic, copy) NSString *clientSecret;
+@property (readonly, nonatomic, copy) NSString *accessToken;
+@property (readonly, nonatomic, copy) NSString *refreshToken;
 
 /**
  Returns a RKClient ready for OAuth
@@ -45,11 +45,18 @@ extern NSString * const kOAuthScopeVote;
  */
 - (id)initWithClientId:(NSString *)clientId clientSecret:(NSString *)clientSecret;
 
-/**
- Signs into reddit via OAuth
- */
-- (NSURL *)oauthURLWithRedirectURI:(NSString *)redirectURI state:(NSString *)state scope:(NSArray*)scope compact:(BOOL)compact;
-- (NSURLSessionDataTask *)signInWithAccessCode:(NSString *)accessCode redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion;
-- (NSURLSessionDataTask *)refreshAccessToken:(NSString*)refreshToken redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion;
-- (NSURLSessionDataTask *)guestTokenWithCompletion:(RKCompletionBlock)completion;
+- (NSURL *)loginURLWithRedirectURI:(NSString *)redirectURI state:(NSString *)state scope:(NSArray*)scope compact:(BOOL)compact;
+- (NSURLSessionDataTask *)authenticateUsingCode:(NSString *)code redirectURI:(NSString *)redirectURI completion:(RKObjectCompletionBlock)completion;
+- (NSURLSessionDataTask *)authenticateUsingRefreshToken:(NSString *)refreshToken completion:(RKObjectCompletionBlock)completion;
+- (NSURLSessionDataTask *)authenticateGuestUsingDeviceID:(NSString *)deviceID completion:(RKObjectCompletionBlock)completion;
+
+@end
+
+@interface RKOAuthCredential : NSObject
+
+@property (readonly, nonatomic, copy) NSString *accessToken;
+@property (readonly, nonatomic, copy) NSString *tokenType;
+@property (readonly, nonatomic, copy) NSString *refreshToken;
+@property (readonly, nonatomic, copy) NSDate *expiration;
+
 @end

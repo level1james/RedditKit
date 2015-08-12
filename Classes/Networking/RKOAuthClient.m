@@ -31,21 +31,35 @@ NSString * const kOAuthScopeVote = @"vote";
 
 @interface RKOAuthClient ()
 
-@property (nonatomic, strong) RKUser *currentUser;
+@property (readwrite, nonatomic, copy) NSString *clientId;
+@property (readwrite, nonatomic, copy) NSString *clientSecret;
+@property (readwrite, nonatomic, copy) NSString *accessToken;
+@property (readwrite, nonatomic, copy) NSString *refreshToken;
+
+@property (readwrite, nonatomic, strong) RKUser *currentUser;
 @property (nonatomic, strong) NSTimer *tokenRefreshTimer;
 
 @end
 @implementation RKOAuthClient
+@dynamic currentUser;
 
 - (id)initWithClientId:(NSString *)clientId clientSecret:(NSString *)clientSecret
 {
-    if (self = [super initWithBaseURL:[[self class] APIBaseURL]]) {
+    return [self initWithClientId:clientId clientSecret:clientSecret sessionConfiguration:nil];
+}
+
+- (id)initWithClientId:(NSString *)clientId clientSecret:(NSString *)clientSecret sessionConfiguration:(NSURLSessionConfiguration *)sessionConfiguration
+{
+    if (self = [super initWithBaseURL:[self.class APIBaseURL] sessionConfiguration:nil]) {
+        
+        NSParameterAssert(clientId);
         self.requestSerializer = [AFHTTPRequestSerializer serializer];
         self.responseSerializer = [RKResponseSerializer serializer];
-        _clientId = clientId;
-        _clientSecret = clientSecret;
-	}
-    
+        self.clientId = clientId;
+        self.clientSecret = clientSecret;
+        
+        [self.requestSerializer setAuthorizationHeaderFieldWithUsername:self.clientId password:self.clientSecret ? self.clientSecret : @""];
+    }
     return self;
 }
 
@@ -72,170 +86,169 @@ NSString * const kOAuthScopeVote = @"vote";
     return @"api/v1/me";
 }
 
-- (void)setClientId:(NSString *)clientId clientSecret:(NSString*)clientSecret {
-    _clientId = [clientId copy];
-    _clientSecret = [clientSecret copy];
-}
-
-- (void)setOAuthorizationHeader {
-    
-    NSAssert(_clientId != nil, @"You must first set a clientId");
-    NSAssert(_clientSecret != nil, @"You must first set a clientSecret");
-    [[self requestSerializer] setAuthorizationHeaderFieldWithUsername:_clientId password:_clientSecret];
-}
-
-- (NSURL *)oauthURLWithRedirectURI:(NSString *)redirectURI state:(NSString *)state scope:(NSArray*)scope compact:(BOOL)compact {
+- (NSURL *)loginURLWithRedirectURI:(NSString *)redirectURI state:(NSString *)state scope:(NSArray*)scope compact:(BOOL)compact {
     
     NSParameterAssert(redirectURI);
     NSParameterAssert(state);
     NSParameterAssert(scope);
-    NSAssert(_clientId != nil, @"You must first set a clientId");
     
     NSString *urlString = [NSString stringWithFormat:@"%@api/v1/authorize%@?response_type=code&redirect_uri=%@&client_id=%@&duration=permanent&scope=%@&state=%@",
                            [[self class] APIBaseLoginURL],
                            compact ? @".compact" : @"",
                            [redirectURI stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-                           _clientId,
+                           self.clientId,
                            [scope componentsJoinedByString:@","],
                            state];
     
     return [NSURL URLWithString: urlString];
 }
 
-- (NSURLSessionDataTask *)signInWithAccessCode:(NSString *)accessCode redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion
-{
-    NSParameterAssert(accessCode);
+
+#pragma mark Authentication
+
+- (NSURLSessionDataTask *)authenticateUsingCode:(NSString *)code redirectURI:(NSString *)redirectURI completion:(RKObjectCompletionBlock)completion {
+    NSParameterAssert(code);
     NSParameterAssert(redirectURI);
-    NSParameterAssert(state);
+    NSDictionary *parameters = @{@"code": code,
+                                 @"redirect_uri": redirectURI,
+                                 @"grant_type": @"authorization_code"};
     
-    NSDictionary *parameters = @{@"code": accessCode, @"state": state, @"redirect_uri": redirectURI, @"grant_type": @"authorization_code"};
-    return [self accessTokenWithParameters:parameters completion:completion];
+    return [self authenticateUsingParameters:parameters completion:completion];
 }
 
-- (NSURLSessionDataTask *)refreshGuestTokenWithTimer:(NSTimer *)timer {
-    return [self guestTokenWithCompletion:nil];
-}
-
-- (NSURLSessionDataTask *)refreshAccessTokenWithTimer:(NSTimer *)timer
-{
-    NSDictionary *parameters = timer.userInfo;
-    return [self refreshAccessToken:_refreshToken redirectURI:parameters[@"redirect_uri"] state:parameters[@"state"] completion:nil];
-}
-
-- (NSURLSessionDataTask *)refreshAccessToken:(NSString *)refreshToken redirectURI:(NSString *)redirectURI state:(NSString *)state completion:(RKCompletionBlock)completion
-{
+- (NSURLSessionDataTask *)authenticateUsingRefreshToken:(NSString *)refreshToken completion:(RKObjectCompletionBlock)completion {
     NSParameterAssert(refreshToken);
-    NSParameterAssert(redirectURI);
-    NSParameterAssert(state);
     
-    NSDictionary *parameters = @{@"refresh_token": refreshToken, @"state": state, @"redirect_uri": redirectURI, @"grant_type": @"refresh_token"};
-    return [self accessTokenWithParameters:parameters completion:completion];
+    NSDictionary *parameters = @{@"refresh_token": refreshToken,
+                                 @"grant_type": @"refresh_token"};
+
+    return [self authenticateUsingParameters:parameters completion:completion];
 }
 
-- (NSURLSessionDataTask *)userInfoWithCompletion:(RKObjectCompletionBlock)completion
-{
-    
-    NSURL *baseURL = [[self class] APIBaseHTTPSURL];
-    NSString *URLString = [[NSURL URLWithString:[[self class] meURLPath] relativeToURL:baseURL] absoluteString];
-    
-    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"GET" URLString:URLString parameters:@{} error:nil];
-    
-    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-        if (completion) {
-            completion(responseObject, error);
-        }
-    }];
-    
-    [authenticationTask resume];
-    
-    return authenticationTask;
-}
 
-- (void)revokeDeviceID {
-    
-}
-
-- (NSURLSessionDataTask *)guestTokenWithCompletion:(RKCompletionBlock)completion {
-    
-    NSString *deviceID = [[NSUUID alloc] init].UUIDString;
+- (NSURLSessionDataTask *)authenticateGuestUsingDeviceID:(NSString *)deviceID completion:(RKObjectCompletionBlock)completion {
 
     NSString *grantType = @"https://oauth.reddit.com/grants/installed_client";
     
-    NSDictionary *parameters = @{@"grant_type": grantType,
-                                 @"device_id": deviceID};
+    NSDictionary *parameters = @{@"device_id": deviceID,
+                                 @"grant_type": grantType};
     
-    return [self accessTokenWithParameters:parameters completion:completion];
+    return [self authenticateUsingParameters:parameters completion:completion];
 }
 
-- (NSURLSessionDataTask *)accessTokenWithParameters:(NSDictionary *)parameters completion:(RKCompletionBlock)completion {
+- (NSURLSessionDataTask *)authenticateUsingParameters:(NSDictionary *)parameters completion:(RKObjectCompletionBlock)completion {
     
-    [self setOAuthorizationHeader];
-    NSURL *baseURL = [[self class] APIBaseLoginURL];
+    [self setBasicAuthorizationHeader];
+    NSURL *baseURL = [self.class APIBaseLoginURL];
     NSString *URLString = [[NSURL URLWithString:@"api/v1/access_token" relativeToURL:baseURL] absoluteString];
     
     
-    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"POST" URLString:URLString parameters:parameters error:nil];
-    
     __weak __typeof(self)weakSelf = self;
-    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-        
-        [weakSelf handleOAuthResponse:responseObject parameters:parameters error:error completion:completion];
-        
+    
+    NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"POST" URLString:URLString parameters:parameters error:nil];
+    NSURLSessionDataTask *authenticationTask =
+    
+    [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+        if ([(NSHTTPURLResponse *)response statusCode] == 200) {
+            [weakSelf handleOAuthResponse:responseObject parameters:parameters error:error completion:completion];
+        } else {
+            
+        }
     }];
     
     [authenticationTask resume];
     return authenticationTask;
 }
 
-- (void)handleOAuthResponse:(id)responseObject parameters:(NSDictionary *)parameters error:(NSError *)error completion:(RKCompletionBlock)completionBlock {
-    
+- (void)handleOAuthResponse:(id)responseObject parameters:(NSDictionary *)parameters error:(NSError *)error completion:(RKObjectCompletionBlock)completionBlock {
+
+    NSLog(@"%@", responseObject);
     if (!error) {
         
-        NSLog(@"%@", responseObject);
-        NSString *accessToken = responseObject[@"access_token"];
-        NSString *refreshToken = responseObject[@"refresh_token"] != [NSNull null] ? responseObject[@"refresh_token"] : nil;
-        NSTimeInterval expiration = [responseObject[@"expires_in"] doubleValue];
-        
-        if (!accessToken) {
-            accessToken = parameters[@"code"];
+        id refreshToken = responseObject[@"refresh_token"];
+        if (!refreshToken || [refreshToken isEqual:[NSNull null]]) {
+            refreshToken = parameters[@"refresh_token"];
         }
-        _accessToken = accessToken;
         
+        NSDate *expiration = [NSDate distantFuture];
+        id expiresIn = responseObject[@"expires_in"];
+        if (expiresIn && ![expiresIn isEqual:[NSNull null]]) {
+            expiration = [NSDate dateWithTimeIntervalSinceNow:[expiresIn doubleValue]];
+        }
+
+        NSString *accessToken = responseObject[@"access_token"];
+        
+        NSAssert(accessToken != nil, @"Received nil access token");
+        self.accessToken = accessToken;
         
         [self setBearerAccessToken:accessToken];
-        [self updateTimerWithRefreshToken:refreshToken expiration:expiration parameters:parameters];
         
         if (!self.currentUser) {
-            [self loadUserAccountWithCallback:^(NSError *error) {
-                completionBlock ? completionBlock(error) : nil;
+            [self updateCurrentUserWithCompletion:^(NSError *error) {
+                completionBlock ? completionBlock(nil, error) : nil;
             }];
         } else if (completionBlock) {
-            completionBlock(nil);
+            completionBlock(nil, error);
         }
     } else if (completionBlock) {
-        completionBlock(error);
+        completionBlock(nil, error);
     }
 }
 
-- (void)updateTimerWithRefreshToken:(NSString *)refreshToken expiration:(NSTimeInterval)expiration parameters:(NSDictionary *)parameters {
-    
-    NSParameterAssert(expiration);
-    
-    // if we have an existing timer, invalidate it so it doesn't fire twice
-    
-    [_tokenRefreshTimer invalidate];
-    NSTimeInterval seconds = expiration - 10; //be a little aggressive and refresh 10 seconds before our token expires
-    self.refreshToken = refreshToken;
-    
-    if (refreshToken) {
-        _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:parameters repeats:NO];
-    } else {
-        _tokenRefreshTimer = [NSTimer scheduledTimerWithTimeInterval:seconds target:self selector:@selector(refreshGuestTokenWithTimer:) userInfo:nil repeats:NO];
-    }
-}
+#pragma mark Timer
 
 
-- (void)loadUserAccountWithCallback:(RKCompletionBlock)completion
+//- (NSURLSessionDataTask *)refreshGuestTokenWithTimer:(NSTimer *)timer {
+//    return [self authenticateGuestUsingDeviceID:nil completion:nil];
+//}
+//
+//- (NSURLSessionDataTask *)refreshAccessTokenWithTimer:(NSTimer *)timer
+//{
+//    return [self authenticateUsingRefreshToken:self.refreshToken completion:nil];
+//}
+//
+//- (NSURLSessionDataTask *)userInfoWithCompletion:(RKObjectCompletionBlock)completion
+//{
+//    
+//    NSURL *baseURL = [[self class] APIBaseHTTPSURL];
+//    NSString *URLString = [[NSURL URLWithString:[[self class] meURLPath] relativeToURL:baseURL] absoluteString];
+//    
+//    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"GET" URLString:URLString parameters:@{} error:nil];
+//    
+//    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+//        if (completion) {
+//            completion(responseObject, error);
+//        }
+//    }];
+//    
+//    [authenticationTask resume];
+//    
+//    return authenticationTask;
+//}
+//
+//- (void)revokeDeviceID {
+//    
+//}
+//
+//- (void)updateTimerWithRefreshToken:(NSString *)refreshToken expiration:(NSDate *)expiration parameters:(NSDictionary *)parameters {
+//    
+//    NSParameterAssert(expiration);
+//    
+//    // if we have an existing timer, invalidate it so it doesn't fire twice
+//    [_tokenRefreshTimer invalidate];
+//    NSDate *timerDate = [expiration dateByAddingTimeInterval:-60];
+//    self.refreshToken = refreshToken;
+//    
+//    if (refreshToken) {
+//        _tokenRefreshTimer = [[NSTimer alloc] initWithFireDate:timerDate interval:0 target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:parameters repeats:NO];
+//    } else {
+//        _tokenRefreshTimer = [[NSTimer alloc] initWithFireDate:timerDate interval:0 target:self selector:@selector(refreshGuestTokenWithTimer:) userInfo:nil repeats:NO];
+//    }
+//}
+
+#pragma mark User
+
+- (void)updateCurrentUserWithCompletion:(RKCompletionBlock)completion
 {
     __weak __typeof(self)weakSelf = self;
     [self currentUserWithCompletion:^(id object, NSError *error) {
@@ -252,15 +265,30 @@ NSString * const kOAuthScopeVote = @"vote";
     }];
 }
 
+- (void)signOut
+{
+    [super signOut];
+    
+    [self.requestSerializer setValue:nil forHTTPHeaderField:@"Authorization"];
+    self.accessToken = nil;
+}
+
 - (BOOL)isSignedIn
 {
 	return self.modhash != nil || _accessToken != nil;
 }
 
-
-- (void)setBearerAccessToken:(NSString*)accessToken
-{
-    [[self requestSerializer] setValue:[@"bearer " stringByAppendingString: accessToken] forHTTPHeaderField:@"Authorization"];
+- (void)setBasicAuthorizationHeader {
+    [self.requestSerializer setAuthorizationHeaderFieldWithUsername:self.clientId password:self.clientSecret ? self.clientSecret : @""];
 }
+
+- (void)setBearerAccessToken:(NSString*)accessToken {
+    [self.requestSerializer setValue:[@"bearer " stringByAppendingString: accessToken] forHTTPHeaderField:@"Authorization"];
+}
+
+@end
+
+@implementation RKOAuthCredential
+
 
 @end
