@@ -49,7 +49,7 @@ extern const NSInteger RKClientErrorTimedOut;
  Returns any errors found in a response.
  */
 + (NSError *)errorFromResponse:(NSHTTPURLResponse *)response responseString:(NSString *)responseString;
-
++ (NSError *)errorFromResponseObject:(id)responseObject response:(NSHTTPURLResponse *)response;
 + (NSError *)errorFromResponseObject:(id)responseObject;
 
 /**

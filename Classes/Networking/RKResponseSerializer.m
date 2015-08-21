@@ -62,7 +62,7 @@
         }
     }
     else {
-        NSError *responseError = [RKClient errorFromResponseObject:responseObject];
+        NSError *responseError = [RKClient errorFromResponseObject:responseObject response:response];
         
         if (responseError && error != NULL)
         {

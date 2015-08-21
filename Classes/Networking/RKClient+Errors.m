@@ -102,8 +102,7 @@ const NSInteger RKClientErrorTimedOut = 504;
     return nil;
 }
 
-+ (NSError *)errorFromResponseObject:(id)responseObject
-{
++ (NSError *)errorFromResponseObject:(id)responseObject response:(NSHTTPURLResponse *)httpResponse {
     NSParameterAssert(responseObject);
     
     if ([responseObject isKindOfClass:[NSDictionary class]])
@@ -126,14 +125,23 @@ const NSInteger RKClientErrorTimedOut = 504;
                     return [[self class] errorFromStatusCode:200 responseString:firstString];
                 }
             }
-        }
-        else if (statusCodeError)
-        {
-            return [[self class] errorFromStatusCode:[statusCodeError integerValue] responseString:@""];
+        } else {
+            NSInteger statusCode = [statusCodeError integerValue];
+            if (!statusCode) {
+                statusCode = httpResponse.statusCode;
+            }
+            if (statusCode) {
+                return [[self class] errorFromStatusCode:statusCode responseString:@""];
+            }
         }
     }
     
     return nil;
+}
+
++ (NSError *)errorFromResponseObject:(id)responseObject
+{
+    return [self errorFromResponseObject:responseObject response:nil];
 }
 
 + (NSError *)authenticationRequiredError
