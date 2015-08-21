@@ -90,7 +90,12 @@ NSString * RKStringFromSubscribedSubredditCategory(RKSubscribedSubredditCategory
     return [self getPath:[[self class] meURLPath] parameters:nil completion:^(NSHTTPURLResponse *response, id responseObject, NSError *error) {
         if (responseObject)
         {
-            RKUser *account = [RKObjectBuilder objectFromJSON:responseObject];
+            RKUser *account;
+            if (responseObject[@"data"] && responseObject[@"kind"]) {
+                account = [RKObjectBuilder objectFromJSON:responseObject];
+            } else {
+                account = [RKObjectBuilder objectFromJSON:@{@"kind": kRKObjectTypeAccount, @"data":responseObject}];
+            }
             
             if (completion)
             {

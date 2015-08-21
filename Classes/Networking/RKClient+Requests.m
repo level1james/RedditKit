@@ -221,6 +221,18 @@
 {
     NSParameterAssert(path);
     
+    if (![self isSignedIn])
+    {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion)
+            {
+                completion(nil, [RKClient authenticationRequiredError]);
+            }
+        });
+        
+        return nil;
+    }
+    
     NSMutableDictionary *taskParameters = [NSMutableDictionary dictionary];
     [taskParameters addEntriesFromDictionary:parameters];
     [taskParameters addEntriesFromDictionary:[pagination dictionaryValue]];
