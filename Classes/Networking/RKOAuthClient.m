@@ -33,8 +33,7 @@ NSString * const kOAuthScopeVote = @"vote";
 
 @property (readwrite, nonatomic, copy) NSString *clientId;
 @property (readwrite, nonatomic, copy) NSString *clientSecret;
-@property (readwrite, nonatomic, copy) NSString *accessToken;
-@property (readwrite, nonatomic, copy) NSString *refreshToken;
+@property (readwrite, nonatomic, strong) RKOAuthCredential *credentials;
 
 @property (readwrite, nonatomic, strong) RKUser *currentUser;
 @property (nonatomic, strong) NSTimer *tokenRefreshTimer;
@@ -146,9 +145,7 @@ NSString * const kOAuthScopeVote = @"vote";
     __weak __typeof(self)weakSelf = self;
     
     NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:@"POST" URLString:URLString parameters:parameters error:nil];
-    NSURLSessionDataTask *authenticationTask =
-    
-    [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
         if ([(NSHTTPURLResponse *)response statusCode] == 200) {
             [weakSelf handleOAuthResponse:responseObject parameters:parameters error:error completion:completion];
         } else {
@@ -177,92 +174,24 @@ NSString * const kOAuthScopeVote = @"vote";
         }
 
         NSString *accessToken = responseObject[@"access_token"];
+        NSString *tokenType = responseObject[@"token_type"];
         
-        NSAssert(accessToken != nil, @"Received nil access token");
-        self.accessToken = accessToken;
+        RKOAuthCredential *credentials = [[RKOAuthCredential alloc] initWithToken:accessToken tokenType:tokenType];
+        credentials.refreshToken = refreshToken;
+        credentials.expiration = expiration;
         
         [self setBearerAccessToken:accessToken];
         
-        if (!self.currentUser) {
-            [self updateCurrentUserWithCompletion:^(NSError *error) {
-                completionBlock ? completionBlock(nil, error) : nil;
+        if (!self.currentUser && [parameters[@"grant_type"] isEqualToString:@"authorization_code"]) {
+            [self currentUserWithCompletion:^(id object, NSError *error) {
+                completionBlock ? completionBlock(credentials, error) : nil;
             }];
         } else if (completionBlock) {
-            completionBlock(nil, error);
+            completionBlock(credentials, error);
         }
     } else if (completionBlock) {
         completionBlock(nil, error);
     }
-}
-
-#pragma mark Timer
-
-
-//- (NSURLSessionDataTask *)refreshGuestTokenWithTimer:(NSTimer *)timer {
-//    return [self authenticateGuestUsingDeviceID:nil completion:nil];
-//}
-//
-//- (NSURLSessionDataTask *)refreshAccessTokenWithTimer:(NSTimer *)timer
-//{
-//    return [self authenticateUsingRefreshToken:self.refreshToken completion:nil];
-//}
-//
-//- (NSURLSessionDataTask *)userInfoWithCompletion:(RKObjectCompletionBlock)completion
-//{
-//    
-//    NSURL *baseURL = [[self class] APIBaseHTTPSURL];
-//    NSString *URLString = [[NSURL URLWithString:[[self class] meURLPath] relativeToURL:baseURL] absoluteString];
-//    
-//    NSMutableURLRequest *request = [[self requestSerializer] requestWithMethod:@"GET" URLString:URLString parameters:@{} error:nil];
-//    
-//    NSURLSessionDataTask *authenticationTask = [self dataTaskWithRequest:request completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-//        if (completion) {
-//            completion(responseObject, error);
-//        }
-//    }];
-//    
-//    [authenticationTask resume];
-//    
-//    return authenticationTask;
-//}
-//
-//- (void)revokeDeviceID {
-//    
-//}
-//
-//- (void)updateTimerWithRefreshToken:(NSString *)refreshToken expiration:(NSDate *)expiration parameters:(NSDictionary *)parameters {
-//    
-//    NSParameterAssert(expiration);
-//    
-//    // if we have an existing timer, invalidate it so it doesn't fire twice
-//    [_tokenRefreshTimer invalidate];
-//    NSDate *timerDate = [expiration dateByAddingTimeInterval:-60];
-//    self.refreshToken = refreshToken;
-//    
-//    if (refreshToken) {
-//        _tokenRefreshTimer = [[NSTimer alloc] initWithFireDate:timerDate interval:0 target:self selector:@selector(refreshAccessTokenWithTimer:) userInfo:parameters repeats:NO];
-//    } else {
-//        _tokenRefreshTimer = [[NSTimer alloc] initWithFireDate:timerDate interval:0 target:self selector:@selector(refreshGuestTokenWithTimer:) userInfo:nil repeats:NO];
-//    }
-//}
-
-#pragma mark User
-
-- (void)updateCurrentUserWithCompletion:(RKCompletionBlock)completion
-{
-    __weak __typeof(self)weakSelf = self;
-    [self currentUserWithCompletion:^(id object, NSError *error) {
-        if (error) {
-            completion(error);
-        } else {
-            weakSelf.currentUser = object;
-            
-            if (completion)
-            {
-                completion(nil);
-            }
-        }
-    }];
 }
 
 - (void)signOut
@@ -270,12 +199,12 @@ NSString * const kOAuthScopeVote = @"vote";
     [super signOut];
     
     [self.requestSerializer setValue:nil forHTTPHeaderField:@"Authorization"];
-    self.accessToken = nil;
+    self.credentials = nil;
 }
 
 - (BOOL)isSignedIn
 {
-	return self.modhash != nil || _accessToken != nil;
+    return self.modhash != nil || !self.credentials.isExpired;
 }
 
 - (void)setBasicAuthorizationHeader {
@@ -288,7 +217,47 @@ NSString * const kOAuthScopeVote = @"vote";
 
 @end
 
+@interface RKOAuthCredential ()
+@property (readwrite, nonatomic, copy) NSString *accessToken;
+@property (readwrite, nonatomic, copy) NSString *tokenType;
+@end
+
 @implementation RKOAuthCredential
+
+- (instancetype)initWithToken:(NSString *)token tokenType:(NSString *)type {
+    self = [super init];
+    if (self) {
+        NSParameterAssert(token);
+        NSParameterAssert(type);
+        
+        self.accessToken = token;
+        self.tokenType = type;
+    }
+    return self;
+}
+
+- (BOOL)isExpired {
+    return [self.expiration compare:[NSDate date]] == NSOrderedAscending;
+}
+
+#pragma mark NSCoding
+
+- (id)initWithCoder:(NSCoder *)aDecoder {
+    self = [super init];
+    self.accessToken = [aDecoder decodeObjectForKey:NSStringFromSelector(@selector(accessToken))];
+    self.tokenType = [aDecoder decodeObjectForKey:NSStringFromSelector(@selector(tokenType))];
+    self.refreshToken = [aDecoder decodeObjectForKey:NSStringFromSelector(@selector(refreshToken))];
+    self.expiration = [aDecoder decodeObjectForKey:NSStringFromSelector(@selector(expiration))];
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)aCoder {
+    [aCoder encodeObject:self.accessToken forKey:NSStringFromSelector(@selector(accessToken))];
+    [aCoder encodeObject:self.tokenType forKey:NSStringFromSelector(@selector(tokenType))];
+    [aCoder encodeObject:self.refreshToken forKey:NSStringFromSelector(@selector(refreshToken))];
+    [aCoder encodeObject:self.expiration forKey:NSStringFromSelector(@selector(expiration))];
+}
+
 
 
 @end

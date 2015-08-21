@@ -28,6 +28,8 @@ extern NSString * const kOAuthScopeSubmit;
 extern NSString * const kOAuthScopeSubscribe;
 extern NSString * const kOAuthScopeVote;
 
+@class RKOAuthCredential;
+
 @interface RKOAuthClient : RKClient
 
 /**
@@ -36,8 +38,6 @@ extern NSString * const kOAuthScopeVote;
  */
 @property (readonly, nonatomic, copy) NSString *clientId;
 @property (readonly, nonatomic, copy) NSString *clientSecret;
-@property (readonly, nonatomic, copy) NSString *accessToken;
-@property (readonly, nonatomic, copy) NSString *refreshToken;
 
 /**
  Returns a RKClient ready for OAuth
@@ -52,11 +52,14 @@ extern NSString * const kOAuthScopeVote;
 
 @end
 
-@interface RKOAuthCredential : NSObject
+@interface RKOAuthCredential : NSObject <NSCoding>
+
+- (instancetype)initWithToken:(NSString *)token tokenType:(NSString *)type;
 
 @property (readonly, nonatomic, copy) NSString *accessToken;
 @property (readonly, nonatomic, copy) NSString *tokenType;
-@property (readonly, nonatomic, copy) NSString *refreshToken;
-@property (readonly, nonatomic, copy) NSDate *expiration;
+@property (readwrite, nonatomic, copy) NSString *refreshToken;
+@property (readwrite, nonatomic, copy) NSDate *expiration;
+@property (readonly, nonatomic, assign, getter=isExpired) BOOL expired;
 
 @end
